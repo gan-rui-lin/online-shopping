@@ -4,6 +4,7 @@ import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.common.api.Result;
 import com.helloworld.onlineshopping.modules.order.dto.OrderQueryDTO;
 import com.helloworld.onlineshopping.modules.order.dto.OrderSubmitDTO;
+import com.helloworld.onlineshopping.modules.order.dto.RefundRequestDTO;
 import com.helloworld.onlineshopping.modules.order.service.OrderService;
 import com.helloworld.onlineshopping.modules.order.vo.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -65,5 +66,41 @@ public class OrderController {
     public Result<Void> deliver(@PathVariable String orderNo) {
         orderService.deliverOrder(orderNo);
         return Result.success();
+    }
+
+    @Operation(summary = "Get merchant orders (merchant)")
+    @GetMapping("/merchant/list")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<PageResult<OrderListVO>> getMerchantOrders(OrderQueryDTO dto) {
+        return Result.success(orderService.getMerchantOrders(dto));
+    }
+
+    @Operation(summary = "Apply for refund")
+    @PostMapping("/{orderNo}/refund/apply")
+    public Result<Void> applyRefund(@PathVariable String orderNo, @Valid @RequestBody RefundRequestDTO dto) {
+        orderService.applyRefund(orderNo, dto.getReason());
+        return Result.success();
+    }
+
+    @Operation(summary = "Approve refund (merchant)")
+    @PostMapping("/{orderNo}/refund/approve")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<Void> approveRefund(@PathVariable String orderNo) {
+        orderService.approveRefund(orderNo);
+        return Result.success();
+    }
+
+    @Operation(summary = "Reject refund (merchant)")
+    @PostMapping("/{orderNo}/refund/reject")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<Void> rejectRefund(@PathVariable String orderNo, @RequestParam String reason) {
+        orderService.rejectRefund(orderNo, reason);
+        return Result.success();
+    }
+
+    @Operation(summary = "Get delivery details")
+    @GetMapping("/{orderNo}/delivery")
+    public Result<com.helloworld.onlineshopping.modules.order.vo.DeliveryDetailVO> getDeliveryDetails(@PathVariable String orderNo) {
+        return Result.success(orderService.getDeliveryDetails(orderNo));
     }
 }

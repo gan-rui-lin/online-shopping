@@ -431,4 +431,152 @@ public class OrderService {
         log.setOperateTime(LocalDateTime.now());
         logMapper.insert(log);
     }
+
+    public PageResult<OrderListVO> getMerchantOrders(OrderQueryDTO dto) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null) {
+            throw new BusinessException("You don't have a shop yet");
+        }
+
+        Page<OrderEntity> page = new Page<>(dto.getPageNum(), dto.getPageSize());
+        LambdaQueryWrapper<OrderEntity> wrapper = new LambdaQueryWrapper<OrderEntity>()
+            .eq(OrderEntity::getShopId, shop.getId())
+            .orderByDesc(OrderEntity::getCreateTime);
+        if (dto.getOrderStatus() != null) {
+            wrapper.eq(OrderEntity::getOrderStatus, dto.getOrderStatus());
+        }
+
+        Page<OrderEntity> result = orderMapper.selectPage(page, wrapper);
+        List<OrderListVO> voList = result.getRecords().stream().map(order -> {
+            OrderListVO vo = new OrderListVO();
+            vo.setOrderNo(order.getOrderNo());
+            vo.setShopId(order.getShopId());
+            vo.setOrderStatus(order.getOrderStatus());
+            vo.setPayAmount(order.getPayAmount());
+            vo.setCreateTime(order.getCreateTime());
+            vo.setShopName(shop.getShopName());
+
+            List<OrderItemEntity> items = orderItemMapper.selectList(
+                new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+            vo.setItemList(items.stream().map(this::toItemVO).collect(Collectors.toList()));
+            return vo;
+        }).collect(Collectors.toList());
+
+        return PageResult.of(voList, result.getTotal(), dto.getPageNum(), dto.getPageSize());
+    }
+
+    @Transactional
+    public void applyRefund(String orderNo, String reason) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        OrderEntity order = getOrderByNo(orderNo);
+        if (!order.getUserId().equals(userId)) {
+            throw new BusinessException("No permission");
+        }
+        if (order.getOrderStatus() != 2 && order.getOrderStatus() != 3) {
+            throw new BusinessException("Only received or completed orders can request refund");
+        }
+
+        int beforeStatus = order.getOrderStatus();
+        order.setOrderStatus(5); // refunding
+        orderMapper.updateById(order);
+
+        saveOperateLog(order.getId(), orderNo, beforeStatus, 5, userId, "BUYER", "APPLY_REFUND", reason);
+    }
+
+    @Transactional
+    public void approveRefund(String orderNo) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        OrderEntity order = getOrderByNo(orderNo);
+
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null || !shop.getId().equals(order.getShopId())) {
+            throw new BusinessException("No permission");
+        }
+        if (order.getOrderStatus() != 5) {
+            throw new BusinessException("Order is not in refunding status");
+        }
+
+        // Process refund
+        order.setOrderStatus(6); // refunded
+        order.setPayStatus(2); // refunded
+        orderMapper.updateById(order);
+
+        // Return stock
+        List<OrderItemEntity> items = orderItemMapper.selectList(
+            new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+        for (OrderItemEntity item : items) {
+            ProductSkuEntity sku = skuMapper.selectById(item.getSkuId());
+            if (sku != null) {
+                sku.setStock(sku.getStock() + item.getQuantity());
+                skuMapper.updateById(sku);
+
+                InventoryLogEntity invLog = new InventoryLogEntity();
+                invLog.setSkuId(item.getSkuId());
+                invLog.setOrderNo(orderNo);
+                invLog.setChangeCount(item.getQuantity());
+                invLog.setBeforeStock(sku.getStock() - item.getQuantity());
+                invLog.setAfterStock(sku.getStock());
+                invLog.setOperateType("RETURN");
+                invLog.setRemark("Refund approved, return stock");
+                inventoryLogMapper.insert(invLog);
+            }
+
+            // Decrease SPU sales count
+            ProductSpuEntity spu = spuMapper.selectById(item.getSpuId());
+            if (spu != null) {
+                spu.setSalesCount(Math.max(0, spu.getSalesCount() - item.getQuantity()));
+                spuMapper.updateById(spu);
+            }
+        }
+
+        saveOperateLog(order.getId(), orderNo, 5, 6, userId, "MERCHANT", "APPROVE_REFUND", "Merchant approved refund");
+    }
+
+    @Transactional
+    public void rejectRefund(String orderNo, String reason) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        OrderEntity order = getOrderByNo(orderNo);
+
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null || !shop.getId().equals(order.getShopId())) {
+            throw new BusinessException("No permission");
+        }
+        if (order.getOrderStatus() != 5) {
+            throw new BusinessException("Order is not in refunding status");
+        }
+
+        order.setOrderStatus(3); // back to completed
+        orderMapper.updateById(order);
+
+        saveOperateLog(order.getId(), orderNo, 5, 3, userId, "MERCHANT", "REJECT_REFUND", reason);
+    }
+
+    public com.helloworld.onlineshopping.modules.order.vo.DeliveryDetailVO getDeliveryDetails(String orderNo) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        OrderEntity order = getOrderByNo(orderNo);
+        if (!order.getUserId().equals(userId)) {
+            throw new BusinessException("No permission");
+        }
+
+        com.helloworld.onlineshopping.modules.order.vo.DeliveryDetailVO vo = new com.helloworld.onlineshopping.modules.order.vo.DeliveryDetailVO();
+        vo.setOrderNo(orderNo);
+        vo.setStatus(order.getOrderStatus());
+        vo.setDeliveryTime(order.getDeliveryTime());
+
+        // Simulated tracking info
+        if (order.getOrderStatus() >= 2) {
+            vo.setTrackingNo("SF" + orderNo.substring(orderNo.length() - 10));
+            vo.setCarrier("SF Express");
+            vo.setCurrentLocation("In transit");
+            if (order.getDeliveryTime() != null) {
+                vo.setEstimatedTime(order.getDeliveryTime().plusDays(2));
+            }
+        }
+
+        return vo;
+    }
 }
