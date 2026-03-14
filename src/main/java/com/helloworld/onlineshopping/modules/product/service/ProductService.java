@@ -11,6 +11,7 @@ import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSkuDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSpuCreateDTO;
+import com.helloworld.onlineshopping.modules.product.dto.ProductSpuUpdateDTO;
 import com.helloworld.onlineshopping.modules.product.entity.ProductImageEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSkuEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
@@ -250,5 +251,139 @@ public class ProductService {
         }
         spu.setStatus(status);
         spuMapper.updateById(spu);
+    }
+
+    @Transactional
+    public void updateProduct(Long spuId, ProductSpuUpdateDTO dto) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null) {
+            throw new BusinessException("Product not found");
+        }
+
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null || !shop.getId().equals(spu.getShopId())) {
+            throw new BusinessException("No permission to modify this product");
+        }
+
+        // Update SPU basic info
+        spu.setCategoryId(dto.getCategoryId());
+        spu.setBrandName(dto.getBrandName());
+        spu.setTitle(dto.getTitle());
+        spu.setSubTitle(dto.getSubTitle());
+        spu.setMainImage(dto.getMainImage());
+        spu.setDetailText(dto.getDetailText());
+
+        // Recalculate price range if SKUs provided
+        if (dto.getSkuList() != null && !dto.getSkuList().isEmpty()) {
+            BigDecimal minPrice = dto.getSkuList().stream()
+                .map(ProductSkuDTO::getPrice)
+                .min(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+            BigDecimal maxPrice = dto.getSkuList().stream()
+                .map(ProductSkuDTO::getPrice)
+                .max(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+            spu.setMinPrice(minPrice);
+            spu.setMaxPrice(maxPrice);
+
+            // Delete old SKUs and create new ones
+            skuMapper.delete(new LambdaQueryWrapper<ProductSkuEntity>()
+                .eq(ProductSkuEntity::getSpuId, spuId));
+
+            for (ProductSkuDTO skuDTO : dto.getSkuList()) {
+                ProductSkuEntity sku = new ProductSkuEntity();
+                sku.setSpuId(spu.getId());
+                sku.setSkuCode(skuDTO.getSkuCode() != null ? skuDTO.getSkuCode() : UUID.randomUUID().toString().substring(0, 16));
+                sku.setSkuName(skuDTO.getSkuName());
+                sku.setSpecJson(skuDTO.getSpecJson());
+                sku.setSalePrice(skuDTO.getPrice());
+                sku.setOriginPrice(skuDTO.getOriginPrice());
+                sku.setStock(skuDTO.getStock());
+                sku.setLockStock(0);
+                sku.setWarningStock(10);
+                sku.setImageUrl(skuDTO.getImageUrl());
+                sku.setStatus(1);
+                sku.setVersion(0);
+                skuMapper.insert(sku);
+            }
+        }
+
+        spuMapper.updateById(spu);
+
+        // Update images if provided
+        if (dto.getImageList() != null) {
+            imageMapper.delete(new LambdaQueryWrapper<ProductImageEntity>()
+                .eq(ProductImageEntity::getSpuId, spuId));
+
+            int order = 0;
+            for (String imageUrl : dto.getImageList()) {
+                ProductImageEntity image = new ProductImageEntity();
+                image.setSpuId(spu.getId());
+                image.setImageUrl(imageUrl);
+                image.setImageType(1);
+                image.setSortOrder(order++);
+                image.setCreateTime(LocalDateTime.now());
+                imageMapper.insert(image);
+            }
+        }
+    }
+
+    public PageResult<ProductSimpleVO> getMyProducts(Integer pageNum, Integer pageSize) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null) {
+            throw new BusinessException("You don't have a shop yet");
+        }
+
+        Page<ProductSpuEntity> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<ProductSpuEntity> wrapper = new LambdaQueryWrapper<ProductSpuEntity>()
+            .eq(ProductSpuEntity::getShopId, shop.getId())
+            .orderByDesc(ProductSpuEntity::getCreateTime);
+
+        Page<ProductSpuEntity> result = spuMapper.selectPage(page, wrapper);
+        List<ProductSimpleVO> voList = result.getRecords().stream().map(spu -> {
+            ProductSimpleVO vo = new ProductSimpleVO();
+            vo.setSpuId(spu.getId());
+            vo.setTitle(spu.getTitle());
+            vo.setSubTitle(spu.getSubTitle());
+            vo.setMainImage(spu.getMainImage());
+            vo.setMinPrice(spu.getMinPrice());
+            vo.setMaxPrice(spu.getMaxPrice());
+            vo.setSalesCount(spu.getSalesCount());
+            vo.setShopName(shop.getShopName());
+            return vo;
+        }).collect(Collectors.toList());
+
+        return PageResult.of(voList, result.getTotal(), pageNum, pageSize);
+    }
+
+    @Transactional
+    public void deleteProduct(Long spuId) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null) {
+            throw new BusinessException("Product not found");
+        }
+
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null || !shop.getId().equals(spu.getShopId())) {
+            throw new BusinessException("No permission to delete this product");
+        }
+
+        // Soft delete SPU
+        spu.setDeleted(1);
+        spuMapper.updateById(spu);
+
+        // Soft delete associated SKUs
+        List<ProductSkuEntity> skus = skuMapper.selectList(
+            new LambdaQueryWrapper<ProductSkuEntity>().eq(ProductSkuEntity::getSpuId, spuId));
+        for (ProductSkuEntity sku : skus) {
+            sku.setDeleted(1);
+            skuMapper.updateById(sku);
+        }
     }
 }
