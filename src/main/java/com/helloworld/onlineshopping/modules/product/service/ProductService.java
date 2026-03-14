@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.common.security.SecurityUtil;
+import com.helloworld.onlineshopping.modules.behavior.service.BrowseHistoryService;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
@@ -39,6 +40,7 @@ public class ProductService {
     private final ProductSkuMapper skuMapper;
     private final ProductImageMapper imageMapper;
     private final MerchantShopMapper shopMapper;
+    private final BrowseHistoryService browseHistoryService;
 
     @Transactional
     public void createProduct(ProductSpuCreateDTO dto) {
@@ -181,6 +183,13 @@ public class ProductService {
         // Increment browse count
         spu.setBrowseCount(spu.getBrowseCount() + 1);
         spuMapper.updateById(spu);
+
+        try {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.helloworld.onlineshopping.common.security.LoginUser loginUser) {
+                browseHistoryService.recordBrowse(loginUser.getUserId(), spuId);
+            }
+        } catch (Exception ignored) {}
 
         ProductDetailVO vo = new ProductDetailVO();
         vo.setSpuId(spu.getId());
