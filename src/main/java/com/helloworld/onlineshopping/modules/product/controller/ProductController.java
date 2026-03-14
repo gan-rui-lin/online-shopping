@@ -4,6 +4,7 @@ import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.common.api.Result;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSpuCreateDTO;
+import com.helloworld.onlineshopping.modules.product.dto.ProductSpuUpdateDTO;
 import com.helloworld.onlineshopping.modules.product.service.ProductService;
 import com.helloworld.onlineshopping.modules.product.vo.ProductDetailVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
@@ -55,6 +56,31 @@ public class ProductController {
     @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
     public Result<Void> offShelf(@PathVariable Long spuId) {
         productService.updateProductStatus(spuId, 2);
+        return Result.success();
+    }
+
+    @Operation(summary = "Update product (merchant)")
+    @PutMapping("/{spuId}")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<Void> update(@PathVariable Long spuId, @Valid @RequestBody ProductSpuUpdateDTO dto) {
+        productService.updateProduct(spuId, dto);
+        return Result.success();
+    }
+
+    @Operation(summary = "Get my products (merchant)")
+    @GetMapping("/my")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<PageResult<ProductSimpleVO>> getMyProducts(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        return Result.success(productService.getMyProducts(pageNum, pageSize));
+    }
+
+    @Operation(summary = "Delete product (merchant)")
+    @DeleteMapping("/{spuId}")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<Void> delete(@PathVariable Long spuId) {
+        productService.deleteProduct(spuId);
         return Result.success();
     }
 }
