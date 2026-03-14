@@ -453,7 +453,7 @@ INSERT IGNORE INTO sys_role (id, role_code, role_name) VALUES
 
 -- Default admin user (password: admin123, BCrypt encoded)
 INSERT IGNORE INTO sys_user (id, username, password, nickname, user_type, status) VALUES
-(1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'System Admin', 3, 1);
+(1, 'admin', '$2a$10$77fqFla9dMpEi4DR1J8WBO6qaJKrR8WChf8I5jwugvpkVseMI1yBe', 'System Admin', 3, 1);
 
 INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 3);
 
