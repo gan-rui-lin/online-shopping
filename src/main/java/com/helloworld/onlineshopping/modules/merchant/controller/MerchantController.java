@@ -3,9 +3,11 @@ package com.helloworld.onlineshopping.modules.merchant.controller;
 import com.helloworld.onlineshopping.common.api.Result;
 import com.helloworld.onlineshopping.modules.merchant.dto.MerchantApplyDTO;
 import com.helloworld.onlineshopping.modules.merchant.dto.MerchantAuditDTO;
+import com.helloworld.onlineshopping.modules.merchant.dto.ShopUpdateDTO;
 import com.helloworld.onlineshopping.modules.merchant.service.MerchantService;
 import com.helloworld.onlineshopping.modules.merchant.vo.MerchantApplyVO;
 import com.helloworld.onlineshopping.modules.merchant.vo.MerchantShopVO;
+import com.helloworld.onlineshopping.modules.merchant.vo.ShopStatisticVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -50,5 +52,20 @@ public class MerchantController {
     public Result<Void> audit(@PathVariable Long id, @Valid @RequestBody MerchantAuditDTO dto) {
         merchantService.audit(id, dto);
         return Result.success();
+    }
+
+    @Operation(summary = "Update shop info (merchant)")
+    @PutMapping("/shop")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<Void> updateShop(@Valid @RequestBody ShopUpdateDTO dto) {
+        merchantService.updateShop(dto);
+        return Result.success();
+    }
+
+    @Operation(summary = "Get shop statistics (merchant)")
+    @GetMapping("/shop/statistics")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<ShopStatisticVO> getStatistics() {
+        return Result.success(merchantService.getShopStatistics());
     }
 }
