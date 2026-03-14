@@ -1,7 +1,7 @@
 package com.helloworld.onlineshopping.modules.rag.service;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
-@Service
+@Service("ragMockAiClient")
 @Primary
 public class MockAiClient implements AiClient {
     @Override
