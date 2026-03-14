@@ -5,18 +5,24 @@ import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.common.security.SecurityUtil;
 import com.helloworld.onlineshopping.modules.merchant.dto.MerchantApplyDTO;
 import com.helloworld.onlineshopping.modules.merchant.dto.MerchantAuditDTO;
+import com.helloworld.onlineshopping.modules.merchant.dto.ShopUpdateDTO;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantApplyEntity;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantApplyMapper;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.merchant.vo.MerchantApplyVO;
 import com.helloworld.onlineshopping.modules.merchant.vo.MerchantShopVO;
+import com.helloworld.onlineshopping.modules.merchant.vo.ShopStatisticVO;
 import com.helloworld.onlineshopping.modules.user.entity.UserEntity;
 import com.helloworld.onlineshopping.modules.user.entity.UserRoleEntity;
 import com.helloworld.onlineshopping.modules.user.entity.RoleEntity;
 import com.helloworld.onlineshopping.modules.user.mapper.UserMapper;
 import com.helloworld.onlineshopping.modules.user.mapper.UserRoleMapper;
 import com.helloworld.onlineshopping.modules.user.mapper.RoleMapper;
+import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
+import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
+import com.helloworld.onlineshopping.modules.order.entity.OrderEntity;
+import com.helloworld.onlineshopping.modules.order.mapper.OrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +41,8 @@ public class MerchantService {
     private final UserMapper userMapper;
     private final UserRoleMapper userRoleMapper;
     private final RoleMapper roleMapper;
+    private final ProductSpuMapper spuMapper;
+    private final OrderMapper orderMapper;
 
     public void apply(MerchantApplyDTO dto) {
         Long userId = SecurityUtil.getCurrentUserId();
@@ -162,6 +170,69 @@ public class MerchantService {
         vo.setShopDesc(entity.getShopDesc());
         vo.setShopStatus(entity.getShopStatus());
         vo.setScore(entity.getScore());
+        return vo;
+    }
+
+    @Transactional
+    public void updateShop(ShopUpdateDTO dto) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null) {
+            throw new BusinessException("Shop not found");
+        }
+
+        shop.setShopName(dto.getShopName());
+        shop.setShopLogo(dto.getShopLogo());
+        shop.setShopDesc(dto.getShopDesc());
+        shopMapper.updateById(shop);
+    }
+
+    public ShopStatisticVO getShopStatistics() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null) {
+            throw new BusinessException("Shop not found");
+        }
+
+        ShopStatisticVO vo = new ShopStatisticVO();
+        vo.setShopId(shop.getId());
+        vo.setShopName(shop.getShopName());
+        vo.setScore(shop.getScore());
+
+        // Count products
+        Long totalProducts = spuMapper.selectCount(
+            new LambdaQueryWrapper<ProductSpuEntity>().eq(ProductSpuEntity::getShopId, shop.getId()));
+        vo.setTotalProducts(totalProducts.intValue());
+
+        Long onShelfProducts = spuMapper.selectCount(
+            new LambdaQueryWrapper<ProductSpuEntity>()
+                .eq(ProductSpuEntity::getShopId, shop.getId())
+                .eq(ProductSpuEntity::getStatus, 1));
+        vo.setOnShelfProducts(onShelfProducts.intValue());
+
+        // Count orders
+        Long totalOrders = orderMapper.selectCount(
+            new LambdaQueryWrapper<OrderEntity>().eq(OrderEntity::getShopId, shop.getId()));
+        vo.setTotalOrders(totalOrders.intValue());
+
+        Long pendingOrders = orderMapper.selectCount(
+            new LambdaQueryWrapper<OrderEntity>()
+                .eq(OrderEntity::getShopId, shop.getId())
+                .eq(OrderEntity::getOrderStatus, 1));
+        vo.setPendingOrders(pendingOrders.intValue());
+
+        // Calculate revenue
+        List<OrderEntity> paidOrders = orderMapper.selectList(
+            new LambdaQueryWrapper<OrderEntity>()
+                .eq(OrderEntity::getShopId, shop.getId())
+                .in(OrderEntity::getOrderStatus, 1, 2, 3));
+        BigDecimal totalRevenue = paidOrders.stream()
+            .map(OrderEntity::getPayAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        vo.setTotalRevenue(totalRevenue);
+
         return vo;
     }
 }

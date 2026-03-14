@@ -11,18 +11,24 @@ import com.helloworld.onlineshopping.modules.order.mapper.OrderItemMapper;
 import com.helloworld.onlineshopping.modules.order.mapper.OrderMapper;
 import com.helloworld.onlineshopping.modules.review.dto.ReviewCreateDTO;
 import com.helloworld.onlineshopping.modules.review.dto.ReviewQueryDTO;
+import com.helloworld.onlineshopping.modules.review.dto.ReviewReplyDTO;
 import com.helloworld.onlineshopping.modules.review.entity.ProductReviewEntity;
 import com.helloworld.onlineshopping.modules.review.mapper.ProductReviewMapper;
 import com.helloworld.onlineshopping.modules.review.vo.ReviewStatisticVO;
 import com.helloworld.onlineshopping.modules.review.vo.ReviewVO;
 import com.helloworld.onlineshopping.modules.user.entity.UserEntity;
 import com.helloworld.onlineshopping.modules.user.mapper.UserMapper;
+import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
+import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
+import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
+import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,6 +41,8 @@ public class ReviewService {
     private final OrderItemMapper orderItemMapper;
     private final OrderMapper orderMapper;
     private final UserMapper userMapper;
+    private final MerchantShopMapper shopMapper;
+    private final ProductSpuMapper spuMapper;
 
     @Transactional
     public void createReview(ReviewCreateDTO dto) {
@@ -151,5 +159,30 @@ public class ReviewService {
             vo.setGoodRate(BigDecimal.ZERO);
         }
         return vo;
+    }
+
+    @Transactional
+    public void replyToReview(Long reviewId, ReviewReplyDTO dto) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        ProductReviewEntity review = reviewMapper.selectById(reviewId);
+        if (review == null) {
+            throw new BusinessException("Review not found");
+        }
+
+        // Verify merchant owns the product
+        ProductSpuEntity spu = spuMapper.selectById(review.getSpuId());
+        if (spu == null) {
+            throw new BusinessException("Product not found");
+        }
+
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null || !shop.getId().equals(spu.getShopId())) {
+            throw new BusinessException("No permission to reply to this review");
+        }
+
+        review.setReplyContent(dto.getReplyContent());
+        review.setReplyTime(LocalDateTime.now());
+        reviewMapper.updateById(review);
     }
 }
