@@ -22,6 +22,8 @@ import com.helloworld.onlineshopping.modules.product.vo.ProductDetailVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSkuVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -175,6 +177,7 @@ public class ProductService {
         return PageResult.of(voList, result.getTotal(), dto.getPageNum(), dto.getPageSize());
     }
 
+    @Cacheable(value = "product:detail", key = "#spuId")
     public ProductDetailVO getProductDetail(Long spuId) {
         ProductSpuEntity spu = spuMapper.selectById(spuId);
         if (spu == null) {
@@ -237,6 +240,7 @@ public class ProductService {
         return vo;
     }
 
+    @CacheEvict(value = "product:detail", key = "#spuId")
     @Transactional
     public void updateProductStatus(Long spuId, Integer status) {
         Long userId = SecurityUtil.getCurrentUserId();
@@ -253,6 +257,7 @@ public class ProductService {
         spuMapper.updateById(spu);
     }
 
+    @CacheEvict(value = "product:detail", key = "#spuId")
     @Transactional
     public void updateProduct(Long spuId, ProductSpuUpdateDTO dto) {
         Long userId = SecurityUtil.getCurrentUserId();
@@ -360,6 +365,7 @@ public class ProductService {
         return PageResult.of(voList, result.getTotal(), pageNum, pageSize);
     }
 
+    @CacheEvict(value = "product:detail", key = "#spuId")
     @Transactional
     public void deleteProduct(Long spuId) {
         Long userId = SecurityUtil.getCurrentUserId();

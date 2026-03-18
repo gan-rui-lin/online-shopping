@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -27,6 +28,7 @@ public class RecommendService {
 
     private static final String HOT_KEY = "hot:products";
 
+    @Cacheable(value = "product:hot", key = "#limit")
     public List<RecommendProductVO> getHotProducts(int limit) {
         Set<ZSetOperations.TypedTuple<Object>> tuples = redisTemplate.opsForZSet().reverseRangeWithScores(HOT_KEY, 0, limit - 1);
         if (tuples != null && !tuples.isEmpty()) {

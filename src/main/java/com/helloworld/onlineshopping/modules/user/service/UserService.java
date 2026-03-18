@@ -14,6 +14,8 @@ import com.helloworld.onlineshopping.modules.user.vo.UserInfoVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,6 +30,7 @@ public class UserService {
     private final RoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
 
+    @Cacheable(value = "user:info", key = "T(com.helloworld.onlineshopping.common.security.SecurityUtil).getCurrentUserId()")
     public UserInfoVO getCurrentUserInfo() {
         Long userId = SecurityUtil.getCurrentUserId();
         UserEntity user = userMapper.selectById(userId);
@@ -56,6 +59,7 @@ public class UserService {
         return vo;
     }
 
+    @CacheEvict(value = "user:info", key = "T(com.helloworld.onlineshopping.common.security.SecurityUtil).getCurrentUserId()")
     public void updateProfile(UpdateProfileDTO dto) {
         Long userId = SecurityUtil.getCurrentUserId();
         UserEntity user = userMapper.selectById(userId);
@@ -69,6 +73,7 @@ public class UserService {
         userMapper.updateById(user);
     }
 
+    @CacheEvict(value = "user:info", key = "T(com.helloworld.onlineshopping.common.security.SecurityUtil).getCurrentUserId()")
     public void changePassword(ChangePasswordDTO dto) {
         Long userId = SecurityUtil.getCurrentUserId();
         UserEntity user = userMapper.selectById(userId);

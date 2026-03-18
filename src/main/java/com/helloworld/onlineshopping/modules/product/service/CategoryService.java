@@ -6,6 +6,8 @@ import com.helloworld.onlineshopping.modules.product.entity.CategoryEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.CategoryMapper;
 import com.helloworld.onlineshopping.modules.product.vo.CategoryVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +20,7 @@ public class CategoryService {
 
     private final CategoryMapper categoryMapper;
 
+    @Cacheable(value = "category:tree")
     public List<CategoryVO> getCategoryTree() {
         List<CategoryEntity> all = categoryMapper.selectList(
             new LambdaQueryWrapper<CategoryEntity>()
@@ -33,6 +36,7 @@ public class CategoryService {
         return roots;
     }
 
+    @CacheEvict(value = "category:tree", allEntries = true)
     public void createCategory(CategoryCreateDTO dto) {
         CategoryEntity entity = new CategoryEntity();
         entity.setParentId(dto.getParentId());
