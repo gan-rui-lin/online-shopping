@@ -45,7 +45,7 @@
 - 实现缓存雪崩防护（随机TTL）
 - 缓存更新策略（Canal监听 binlog 或定时刷新）
 
-□ 本地缓存（Caffeine）
+✅ 本地缓存（Caffeine）
 
 - 配置项、字典数据本地缓存
 - 减少 Redis 网络开销

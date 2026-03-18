@@ -95,3 +95,17 @@ When the server restarts or caches are cleared, high traffic can hit the databas
 
 - **Solution :ApplicationRunner Scheduled Preheating:**
   We implemented CachePreheatTask.java utilizing Spring's ApplicationRunner. Upon successful boot, it automatically queries hot products and seeds the initial Redis mappings. Additionally, CacheRefreshTask runs on a schedule to repeatedly refresh these values in the background.
+
+## Local Caching Optimizations
+
+To further reduce network overhead between our application and Redis, we introduced **Caffeine** for Local JVM Caching.
+
+### 1. Handling Static & Dictionary Data
+
+For highly accessed, read-heavy, and completely static configurations (like `ORDER_STATUS`, `SYS_CONFIG`), reading from Redis still incurs network latency and deserialization costs. 
+
+- **Solution :Local Caffeine Cache:**
+  We introduced `CaffeineConfig.java` providing a localized memory cache (`dictCache`).
+  - This local cache holds up to 1000 items and automatically expires them an hour after the last write.
+  - The `DictService.java` is designed to intercept mapping fetches. It loads static configurations directly from local JVM memory before checking the database.
+  - Integration tests (`CaffeineCacheTest.java`) mathematically verify that instances retrieved are identical address spaces (`==`), confirming that network operations and object reallocations are eliminated.
