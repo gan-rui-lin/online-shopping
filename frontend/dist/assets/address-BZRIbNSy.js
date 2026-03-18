@@ -1,0 +1,1 @@
+import{Z as s}from"./index-Cj8uu14o.js";function t(){return s.get("/address/list")}function d(e){return s.post("/address",e)}function n(e){return s.put("/address",e)}function u(e){return s.delete(`/address/${e}`)}export{d as c,u as d,t as g,n as u};
