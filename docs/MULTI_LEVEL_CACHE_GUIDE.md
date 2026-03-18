@@ -1,9 +1,11 @@
 # Multi-Level Caching Guide
 
 ## Table of Contents
+
 1. [Principles of Spring Cache Annotation System](#principles-of-spring-cache-annotation-system)
 
 Spring Cache provides an abstraction layer for declarative caching. It works by intercepting method calls using AOP (Aspect-Oriented Programming). When a method annotated with a caching annotation is called:
+
 1. Spring generates a proxy around the target bean.
 2. The proxy intercepts the method execution.
 3. It checks if the requested data is already present in the cache backend (like Redis).
@@ -17,12 +19,13 @@ This decoupling allows developers to easily apply caching to business logic with
 The `RedisCacheManager` integrates with our system's backend (Redis) to store and expire cache entries. Since different types of data change at different frequencies, having a uniform Time-To-Live (TTL) might result in stale data or memory bloating.
 
 We handle variable TTLs by customizing the `RedisCacheManager` in `CacheConfig.java`:
+
 - **Default TTL:** We define a base `RedisCacheConfiguration` with a standard expiration (e.g., 1 hour).
 - **Specific TTLs:** We inject specific `RedisCacheConfiguration` objects mapped by the cache name string. For instance:
-    - `"product:detail"` is mapped to 30 minutes.
-    - `"category:tree"` is mapped to 1 hour.
-    - `"product:hot"` is mapped to 5 minutes.
-    - `"user:info"` is mapped to 15 minutes.
+  - `"product:detail"` is mapped to 30 minutes.
+  - `"category:tree"` is mapped to 1 hour.
+  - `"product:hot"` is mapped to 5 minutes.
+  - `"user:info"` is mapped to 15 minutes.
 - When Spring Cache issues a command to save data under `"product:detail"`, `RedisCacheManager` detects the corresponding override and sets the TTL to exactly 30 minutes for those keys.
 
 ## Why Caching Solves the Performance Issue
@@ -34,25 +37,61 @@ We handle variable TTLs by customizing the `RedisCacheManager` in `CacheConfig.j
 ## When to Use Which Annotations
 
 ### `@Cacheable`
+
 - **When to use:** Use on methods that fetch data (read-only or predominantly read operations), where the results are relatively stable over time.
 - **Purpose:** Checks the cache first. On hit, returns cached data. On miss, runs the method and populates the cache.
 - **Example:** `getProductDetail`, `getCategoryTree`, `getHotProducts`.
 
 ### `@CacheEvict`
+
 - **When to use:** Use on methods that perform modifications (create, update, delete) to data that is being cached.
 - **Purpose:** Invalidates stale cache data ensuring that the subsequent read operation gets the most up-to-date data from the database.
 - **Example:** `updateProduct`, `deleteProduct`, `createCategory`, `updateProfile`. Use `allEntries = true` if modifying a collection or a tree (e.g., categories).
 
 ### `@CachePut`
+
 - **When to use:** Rarely, but often for targeted updates where the method always returns the updated object.
 - **Purpose:** Unlike `@Cacheable`, `@CachePut` *always* executes the method and then places the result into the cache. This forces a cache update without sacrificing method execution.
 - **Example:** Directly caching an updated configuration object post-save.
+
 ## Caching Integration Testing
+
 It is highly recommended to establish robust integration testing when working with Spring Cache to guarantee data consistency and TTL accuracy without running the entire application manually.
 
 The project contains a powerful test \SpringCacheIntegrationTest.java\ that demonstrates how to write a reliable proxy/cache test:
+
 1. **Mock or Prepare Data:** Always execute database inserts or mock return values (using Mockito's \@SpyBean\ or \@MockBean\) before asserting against cache logic.
 2. **Verify Execution Flow:** To truly ensure \@Cacheable\ behaves correctly (returning values from Redis directly upon a warm hit without interacting with the DB), verify invocation counts on your DAOs or Mappers. Ex: \Mockito.verify(mapper, never()).selectById(anyLong());\
 3. **Verify Configuration Validity:** Validate whether the backend properly received the keys and TTL limits by asserting values directly via \RedisTemplate.getExpire(key)\.
 4. **Mock Interceptors Effectively:** Ensure that proxy interceptors inherently tied to Spring's architecture (like Security interceptors using thread-local constructs such as \SecurityContextHolder\) are adequately mocked during cache invalidation (\@CacheEvict\) testing.
 
+## Redis Advanced Optimizations
+
+Our project goes beyond standard caching annotations to handle extreme concurrency and prevent common cache-related technical pitfalls (Cache Avalanche, Cache Penetration, etc.).
+
+### 1. Handling Cache Avalanche 
+
+A Cache Avalanche occurs when a large amount of cache keys expire at the exact same moment. This forces all subsequent requests for these keys to query the database simultaneously, potentially causing a system crash.
+
+- **Solution :TTL Random Jitter :**
+  In the CustomRedisCacheManager.java, we override createRedisCache to add a random jitter (60-300 seconds) to the configured TTL of cached items. This breaks up uniform expirations so keys expire at different times.
+
+### 2. Handling Cache Penetration 
+
+Cache Penetration is when clients query for keys that do NOT exist in the Cache AND the Database. Without protective measures, these queries would hit the database repeatedly.
+
+- **Solution A :Preventative Caching of Null:** We removed .disableCachingNullValues() in CacheConfig to allow the cache to store
+  ull results for non-existent queries.
+- **Solution B :Redisson Bloom Filters:**
+  Using
+  edisson-spring-boot-starter, we implemented a Bloom Filter in ProductService.
+  - During startup, initBloomFilter pre-hashes valid product IDs into a memory-efficient filter inside Redis.
+  - New product creations automatically register their ID to the existing Bloom Filter.
+  - Any product lookup operations (getProductDetail) check the filter first via !productBloomFilter.contains(spuId). If blocked by the Bloom filter, the request is immediately rejected without touching the DB.
+
+### 3. Cache Warming / Preheating 
+
+When the server restarts or caches are cleared, high traffic can hit the database directly (Cache Breakdown).
+
+- **Solution :ApplicationRunner Scheduled Preheating:**
+  We implemented CachePreheatTask.java utilizing Spring's ApplicationRunner. Upon successful boot, it automatically queries hot products and seeds the initial Redis mappings. Additionally, CacheRefreshTask runs on a schedule to repeatedly refresh these values in the background.

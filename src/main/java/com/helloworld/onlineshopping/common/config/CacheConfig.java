@@ -23,8 +23,7 @@ public class CacheConfig {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofHours(1)) // Default TTL 1 hour
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()))
-                .disableCachingNullValues();
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
 
         Map<String, RedisCacheConfiguration> configMap = new HashMap<>();
         configMap.put("product:detail", defaultConfig.entryTtl(Duration.ofMinutes(30)));
@@ -32,9 +31,7 @@ public class CacheConfig {
         configMap.put("product:hot", defaultConfig.entryTtl(Duration.ofMinutes(5)));
         configMap.put("user:info", defaultConfig.entryTtl(Duration.ofMinutes(15)));
 
-        return RedisCacheManager.builder(redisConnectionFactory)
-                .cacheDefaults(defaultConfig)
-                .withInitialCacheConfigurations(configMap)
-                .build();
+        org.springframework.data.redis.cache.RedisCacheWriter redisCacheWriter = org.springframework.data.redis.cache.RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory);
+        return new CustomRedisCacheManager(redisCacheWriter, defaultConfig, configMap);
     }
 }

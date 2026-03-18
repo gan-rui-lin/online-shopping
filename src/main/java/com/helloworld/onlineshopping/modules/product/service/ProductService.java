@@ -22,6 +22,9 @@ import com.helloworld.onlineshopping.modules.product.vo.ProductDetailVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSkuVO;
 import lombok.RequiredArgsConstructor;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
+import jakarta.annotation.PostConstruct;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -44,6 +47,25 @@ public class ProductService {
     private final ProductImageMapper imageMapper;
     private final MerchantShopMapper shopMapper;
     private final BrowseHistoryService browseHistoryService;
+    private final RedissonClient redissonClient;
+    
+    // Bloom Filter instance
+    private RBloomFilter<Long> productBloomFilter;
+    
+    @PostConstruct
+    public void initBloomFilter() {
+        productBloomFilter = redissonClient.getBloomFilter("product:bloom:filter");
+        // Initialize bloom filter with capacity = 10000 and false positive rate = 0.03
+        productBloomFilter.tryInit(100000L, 0.03);
+        
+        // Load existing product IDs into Bloom Filter
+        List<ProductSpuEntity> products = spuMapper.selectList(null);
+        if (products != null) {
+            for (ProductSpuEntity p : products) {
+                productBloomFilter.add(p.getId());
+            }
+        }
+    }
 
     @Transactional
     public void createProduct(ProductSpuCreateDTO dto) {
@@ -88,6 +110,11 @@ public class ProductService {
         }
 
         spuMapper.insert(spu);
+        
+        // Add new product ID to Bloom Filter to avoid false cache penetration blocking
+        if (productBloomFilter != null) {
+            productBloomFilter.add(spu.getId());
+        }
 
         // Create SKUs
         if (dto.getSkuList() != null) {
@@ -179,6 +206,11 @@ public class ProductService {
 
     @Cacheable(value = "product:detail", key = "#spuId")
     public ProductDetailVO getProductDetail(Long spuId) {
+        // Cache Penetration Defense using Bloom Filter
+        if (productBloomFilter != null && !productBloomFilter.contains(spuId)) {
+            throw new BusinessException("Product not found");
+        }
+        
         ProductSpuEntity spu = spuMapper.selectById(spuId);
         if (spu == null) {
             throw new BusinessException("Product not found");
