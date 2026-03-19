@@ -82,10 +82,29 @@ public class CartService {
         int checkedCount = 0;
         BigDecimal checkedAmount = BigDecimal.ZERO;
 
+        if (items.isEmpty()) {
+            cart.setItems(voList);
+            cart.setTotalCount(0);
+            cart.setTotalAmount(BigDecimal.ZERO);
+            cart.setCheckedCount(0);
+            cart.setCheckedAmount(BigDecimal.ZERO);
+            return cart;
+        }
+
+        // Batch load SKUs
+        List<Long> skuIds = items.stream().map(CartItemEntity::getSkuId).distinct().collect(java.util.stream.Collectors.toList());
+        List<ProductSkuEntity> skuEntities = skuMapper.selectBatchIds(skuIds);
+        java.util.Map<Long, ProductSkuEntity> skuMap = skuEntities.stream().collect(java.util.stream.Collectors.toMap(ProductSkuEntity::getId, s -> s));
+
+        // Batch load SPUs
+        List<Long> spuIds = skuEntities.stream().map(ProductSkuEntity::getSpuId).distinct().collect(java.util.stream.Collectors.toList());
+        List<ProductSpuEntity> spuEntities = spuMapper.selectBatchIds(spuIds);
+        java.util.Map<Long, ProductSpuEntity> spuMap = spuEntities.stream().collect(java.util.stream.Collectors.toMap(ProductSpuEntity::getId, s -> s));
+
         for (CartItemEntity item : items) {
-            ProductSkuEntity sku = skuMapper.selectById(item.getSkuId());
+            ProductSkuEntity sku = skuMap.get(item.getSkuId());
             if (sku == null) continue;
-            ProductSpuEntity spu = spuMapper.selectById(sku.getSpuId());
+            ProductSpuEntity spu = spuMap.get(sku.getSpuId());
             if (spu == null) continue;
 
             CartItemVO vo = new CartItemVO();

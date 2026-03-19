@@ -36,6 +36,9 @@ Set the variables before running:
 ```bash
 export DB_PASSWORD=your_mysql_password
 export REDIS_PASSWORD=your_redis_password  # leave empty if no auth
+
+# windows use set
+set DB_PASSWORD=your_mysql_password
 ```
 
 Or pass them inline:
@@ -46,15 +49,15 @@ DB_PASSWORD=yourpass ./mvnw spring-boot:run
 
 All configurable variables:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_URL` | `jdbc:mysql://localhost:3306/online_shopping?...` | JDBC URL |
-| `DB_USERNAME` | `root` | MySQL username |
-| `DB_PASSWORD` | *(empty)* | MySQL password |
-| `REDIS_HOST` | `localhost` | Redis host |
-| `REDIS_PORT` | `6379` | Redis port |
-| `REDIS_PASSWORD` | *(empty)* | Redis password |
-| `JWT_SECRET` | *(built-in default)* | JWT signing key (Base64) |
+| Variable           | Default                                             | Description              |
+| ------------------ | --------------------------------------------------- | ------------------------ |
+| `DB_URL`         | `jdbc:mysql://localhost:3306/online_shopping?...` | JDBC URL                 |
+| `DB_USERNAME`    | `root`                                            | MySQL username           |
+| `DB_PASSWORD`    | *(empty)*                                         | MySQL password           |
+| `REDIS_HOST`     | `localhost`                                       | Redis host               |
+| `REDIS_PORT`     | `6379`                                            | Redis port               |
+| `REDIS_PASSWORD` | *(empty)*                                         | Redis password           |
+| `JWT_SECRET`     | *(built-in default)*                              | JWT signing key (Base64) |
 
 ### 4. Run
 
@@ -69,8 +72,8 @@ Open [http://localhost:8080/doc.html](http://localhost:8080/doc.html) after star
 ### Default Admin Account
 
 | Username | Password |
-|----------|----------|
-| admin | admin123 |
+| -------- | -------- |
+| admin    | admin123 |
 
 ## Project Structure
 

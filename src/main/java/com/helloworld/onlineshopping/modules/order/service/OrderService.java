@@ -347,7 +347,25 @@ public class OrderService {
         }
 
         Page<OrderEntity> result = orderMapper.selectPage(page, wrapper);
-        List<OrderListVO> voList = result.getRecords().stream().map(order -> {
+        List<OrderEntity> records = result.getRecords();
+        if (records.isEmpty()) {
+            return PageResult.of(Collections.emptyList(), result.getTotal(), dto.getPageNum(), dto.getPageSize());
+        }
+
+        // Batch query shop names
+        List<Long> shopIds = records.stream().map(OrderEntity::getShopId).distinct().collect(Collectors.toList());
+        List<MerchantShopEntity> shops = shopMapper.selectBatchIds(shopIds);
+        Map<Long, String> shopNameMap = shops.stream()
+            .collect(Collectors.toMap(MerchantShopEntity::getId, MerchantShopEntity::getShopName));
+
+        // Batch query order items
+        List<Long> orderIds = records.stream().map(OrderEntity::getId).collect(Collectors.toList());
+        List<OrderItemEntity> allItems = orderItemMapper.selectList(
+            new LambdaQueryWrapper<OrderItemEntity>().in(OrderItemEntity::getOrderId, orderIds));
+        Map<Long, List<OrderItemEntity>> itemsByOrderId = allItems.stream()
+            .collect(Collectors.groupingBy(OrderItemEntity::getOrderId));
+
+        List<OrderListVO> voList = records.stream().map(order -> {
             OrderListVO vo = new OrderListVO();
             vo.setOrderNo(order.getOrderNo());
             vo.setShopId(order.getShopId());
@@ -355,11 +373,9 @@ public class OrderService {
             vo.setPayAmount(order.getPayAmount());
             vo.setCreateTime(order.getCreateTime());
 
-            MerchantShopEntity shop = shopMapper.selectById(order.getShopId());
-            vo.setShopName(shop != null ? shop.getShopName() : "");
+            vo.setShopName(shopNameMap.getOrDefault(order.getShopId(), ""));
 
-            List<OrderItemEntity> items = orderItemMapper.selectList(
-                new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+            List<OrderItemEntity> items = itemsByOrderId.getOrDefault(order.getId(), Collections.emptyList());
             vo.setItemList(items.stream().map(this::toItemVO).collect(Collectors.toList()));
             return vo;
         }).collect(Collectors.toList());
@@ -449,7 +465,19 @@ public class OrderService {
         }
 
         Page<OrderEntity> result = orderMapper.selectPage(page, wrapper);
-        List<OrderListVO> voList = result.getRecords().stream().map(order -> {
+        List<OrderEntity> records = result.getRecords();
+        if (records.isEmpty()) {
+            return PageResult.of(Collections.emptyList(), result.getTotal(), dto.getPageNum(), dto.getPageSize());
+        }
+
+        // Batch query order items
+        List<Long> orderIds = records.stream().map(OrderEntity::getId).collect(Collectors.toList());
+        List<OrderItemEntity> allItems = orderItemMapper.selectList(
+            new LambdaQueryWrapper<OrderItemEntity>().in(OrderItemEntity::getOrderId, orderIds));
+        Map<Long, List<OrderItemEntity>> itemsByOrderId = allItems.stream()
+            .collect(Collectors.groupingBy(OrderItemEntity::getOrderId));
+
+        List<OrderListVO> voList = records.stream().map(order -> {
             OrderListVO vo = new OrderListVO();
             vo.setOrderNo(order.getOrderNo());
             vo.setShopId(order.getShopId());
@@ -458,8 +486,7 @@ public class OrderService {
             vo.setCreateTime(order.getCreateTime());
             vo.setShopName(shop.getShopName());
 
-            List<OrderItemEntity> items = orderItemMapper.selectList(
-                new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+            List<OrderItemEntity> items = itemsByOrderId.getOrDefault(order.getId(), Collections.emptyList());
             vo.setItemList(items.stream().map(this::toItemVO).collect(Collectors.toList()));
             return vo;
         }).collect(Collectors.toList());

@@ -5,9 +5,11 @@ spring:
     password: ${DB_PASSWORD:}
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      database: 0
+  main:
+    allow-bean-definition-overriding: true
 mybatis-plus:
   global-config:
     db-config:

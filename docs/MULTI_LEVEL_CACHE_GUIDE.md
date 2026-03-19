@@ -109,3 +109,35 @@ For highly accessed, read-heavy, and completely static configurations (like `ORD
   - This local cache holds up to 1000 items and automatically expires them an hour after the last write.
   - The `DictService.java` is designed to intercept mapping fetches. It loads static configurations directly from local JVM memory before checking the database.
   - Integration tests (`CaffeineCacheTest.java`) mathematically verify that instances retrieved are identical address spaces (`==`), confirming that network operations and object reallocations are eliminated.
+---
+
+# Database Query Optimizations
+
+While caching significantly reduces the load on the database, optimizing the underlying database queries is still essential for operations that miss the cache, write heavily, or involve complex relational data. The following database optimizations have been implemented to ensure robust performance:
+
+## 1. Resolving N+1 Query Problems
+The N+1 query problem occurs when an application executes 1 query to retrieve a list of $N$ entities, and then performs $N$ additional queries to fetch a related entity for each. This drastically degrades performance.
+
+**Solution: In-Memory Map Joins via `selectBatchIds`**
+- We refactored services (`OrderService`, `ProductService`, `CartService`) by extracting a list or set of the target `ID`s using Java Streams.
+- Next, we use MyBatis-Plus's `selectBatchIds(ids)` or `.in(id, ids)` conditional queries to load all related entities in a single batch query.
+- Finally, Java Stream `Collectors.groupingBy()` or `Collectors.toMap()` is used to quickly associate the fetched entities with the original parents in memory ($O(1)$ lookup time).
+- This strictly bounds the maximum number of queries to 2 (one for the parents, one for the relationships) regardless of the dataset size.
+
+## 2. Composite Indexes (`indexes.sql`)
+Indexing creates B+Tree data structures that allow MySQL to locate records without performing a full table scan. Composite indexes cover multiple columns to optimize filtering and sorting simultaneously.
+
+- **`order_entity`** `(user_id, order_status, create_time)`: Optimizes frequent Buyer-side queries where they view their orders grouped by `order_status` and sorted by `create_time` descending.
+- **`product_spu`** `(status, audit_status, sales_count)`: Powers the core marketplace catalog. Automatically filters products to show only active (`status = 1`) and approved (`audit_status = 1`) items while allowing immediate reverse sorting by `sales_count`.
+- **`cart_item`** `(user_id, sku_id, checked)`: Accelerates shopping cart lookups, duplicate-check logic, and fast fetching of `checked` items during the checkout and calculation phase. 
+
+*Note: The script `src/main/resources/db/optimize/indexes.sql` must be successfully executed in MySQL for these physical optimizations to take effect.*
+
+## 3. Slow Query Interceptor Integration
+Monitoring query performance is key for preemptive optimization. Not all queries maintain $O(1)$ or $O(\log n)$ performance as tables grow to millions of rows.
+
+**Solution: MyBatis Physical `Interceptor`**
+- We added `SlowQueryInterceptor.java` directly into the MyBatis-Plus plugin chain.
+- This plugin intercepts the foundational `Executor.class` methods (`query` and `update`).
+- It captures the `BoundSql` and times the exact execution block `invocation.proceed()`.
+- If the milliseconds elapsed exceed a specific risk threshold (`100ms`), the exact parameterized SQL string and the time taken are heavily logged as `WARN`. This makes it immediately obvious during APM monitoring which DB operations are bottlenecking the application.

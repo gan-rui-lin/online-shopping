@@ -37,6 +37,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -187,7 +189,18 @@ public class ProductService {
         }
 
         Page<ProductSpuEntity> result = spuMapper.selectPage(page, wrapper);
-        List<ProductSimpleVO> voList = result.getRecords().stream().map(spu -> {
+        List<ProductSpuEntity> records = result.getRecords();
+        if (records.isEmpty()) {
+            return PageResult.of(Collections.emptyList(), result.getTotal(), dto.getPageNum(), dto.getPageSize());
+        }
+
+        // Batch query shop names
+        List<Long> shopIds = records.stream().map(ProductSpuEntity::getShopId).distinct().collect(Collectors.toList());
+        List<MerchantShopEntity> shops = shopMapper.selectBatchIds(shopIds);
+        Map<Long, String> shopNameMap = shops.stream()
+            .collect(Collectors.toMap(MerchantShopEntity::getId, MerchantShopEntity::getShopName));
+
+        List<ProductSimpleVO> voList = records.stream().map(spu -> {
             ProductSimpleVO vo = new ProductSimpleVO();
             vo.setSpuId(spu.getId());
             vo.setTitle(spu.getTitle());
@@ -196,8 +209,7 @@ public class ProductService {
             vo.setMinPrice(spu.getMinPrice());
             vo.setMaxPrice(spu.getMaxPrice());
             vo.setSalesCount(spu.getSalesCount());
-            MerchantShopEntity shop = shopMapper.selectById(spu.getShopId());
-            vo.setShopName(shop != null ? shop.getShopName() : "");
+            vo.setShopName(shopNameMap.getOrDefault(spu.getShopId(), ""));
             return vo;
         }).collect(Collectors.toList());
 
@@ -412,16 +424,11 @@ public class ProductService {
             throw new BusinessException("No permission to delete this product");
         }
 
-        // Soft delete SPU
-        spu.setDeleted(1);
-        spuMapper.updateById(spu);
+        // Soft delete SPU using MyBatis-Plus logical delete
+        spuMapper.deleteById(spu.getId());
 
-        // Soft delete associated SKUs
-        List<ProductSkuEntity> skus = skuMapper.selectList(
+        // Soft delete associated SKUs using MyBatis-Plus logical delete
+        skuMapper.delete(
             new LambdaQueryWrapper<ProductSkuEntity>().eq(ProductSkuEntity::getSpuId, spuId));
-        for (ProductSkuEntity sku : skus) {
-            sku.setDeleted(1);
-            skuMapper.updateById(sku);
-        }
     }
 }

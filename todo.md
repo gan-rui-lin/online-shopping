@@ -55,19 +55,19 @@
 
 1.2 数据库查询优化
 
-□ 解决 N+1 查询问题
+✅ 解决 N+1 查询问题
 
 - OrderService.getOrderList：批量查询订单项
 - ProductService：批量加载 SKU 和图片
 - 使用 MyBatis-Plus 的 @TableLogic 优化逻辑删除查询
 
-□ 添加复合索引
+✅ 添加复合索引
 
 - order_entity: (user_id, order_status, create_time)
 - product_spu: (status, audit_status, sales_count)
 - cart_item: (user_id, sku_id, checked)
 
-□ 慢查询优化
+✅ 慢查询优化
 
 - 启用 MyBatis-Plus 性能插件
 - 添加慢 SQL 日志监控

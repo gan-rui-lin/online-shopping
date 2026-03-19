@@ -11,13 +11,13 @@ import org.springframework.util.StringUtils;
 @Configuration
 public class RedissonConfig {
 
-    @Value("${spring.data.redis.host:localhost}")
+    @Value("${spring.data.redis.host:127.0.0.1}")
     private String host;
 
     @Value("${spring.data.redis.port:6379}")
     private String port;
 
-    @Value("${spring.data.redis.password:}")
+    @Value("${spring.data.redis.password:#{null}}")
     private String password;
 
     @Bean(destroyMethod = "shutdown")
@@ -25,10 +25,11 @@ public class RedissonConfig {
         Config config = new Config();
         String address = "redis://" + host + ":" + port;
         
-        config.useSingleServer().setAddress(address);
+        config.useSingleServer().setAddress(address)
+              .setPingConnectionInterval(1000); // 增加心跳
         
         // 只有当密码确实配置了且不为空时，才设置密码，防止产生 ERR Client sent AUTH, but no password is set 错误
-        if (StringUtils.hasText(password)) {
+        if (password != null && !password.trim().isEmpty() && !password.equals("${REDIS_PASSWORD:}")) {
             config.useSingleServer().setPassword(password);
         }
         

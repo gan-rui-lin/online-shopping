@@ -37,6 +37,9 @@ public class SpringCacheIntegrationTest {
     @Autowired
     private MerchantShopMapper merchantShopMapper;
 
+    @Autowired
+    private org.redisson.api.RedissonClient redissonClient;
+
     @Test
     @DisplayName("测试商品详情的读缓存与驱逐(Cacheable & CacheEvict)是否生效")
     @Transactional
@@ -62,6 +65,11 @@ public class SpringCacheIntegrationTest {
         productSpuMapper.insert(testProduct);
         Long testSpuId = testProduct.getId();
         
+        // 由于是手动在Mapper层面插入数据，绕过了 ProductService.createProduct()
+        // 因此需要手动将测试商品的 ID 添加到布隆过滤器，防止 getProductDetail 被拦截
+        org.redisson.api.RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter("product:bloom:filter");
+        bloomFilter.add(testSpuId);
+        
         String cacheKey = "product:detail::" + testSpuId;
 
         // 2. 测试开始前清理缓存（保险起见）
@@ -76,10 +84,10 @@ public class SpringCacheIntegrationTest {
         Boolean hasKey = redisTemplate.hasKey(cacheKey);
         Assertions.assertTrue(hasKey, "Redis 中应该存在缓存 " + cacheKey);
 
-        // 5. 验证过期时间 (TTL) 是否设置成了约 30 分钟
+        // 5. 验证过期时间 (TTL) 是否设置成了约 30 分钟 (包含抖动时间：可能在 30 ~ 36 分钟之间)
         Long expire = redisTemplate.getExpire(cacheKey, TimeUnit.MINUTES);
         Assertions.assertNotNull(expire);
-        Assertions.assertTrue(expire > 28 && expire <= 30, "TTL 应该在 30 分钟左右，实际是: " + expire);
+        Assertions.assertTrue(expire > 28 && expire <= 36, "TTL 应该在 30 分钟左右(由于有随机抖动防雪崩，范围大概在30~36)，实际是: " + expire);
 
         // 6. 重置 Mapper 的调用监控计数器
         reset(productSpuMapper);
