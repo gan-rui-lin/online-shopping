@@ -116,6 +116,7 @@ com.helloworld.onlineshopping
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/cart/add` | Add item to cart |
+| POST | `/api/cart/batch-add` | Batch add items to cart |
 | GET | `/api/cart/list` | Get cart contents |
 | PUT | `/api/cart/update` | Update quantity/checked |
 | DELETE | `/api/cart/item/{skuId}` | Remove item |
@@ -173,6 +174,13 @@ WHERE id = #{skuId} AND stock >= #{count} AND version = #{version};
 - Returns affected rows = 0 on conflict → throws BusinessException
 - No distributed lock required for course-design scale
 
+#### Stock Pre-Lock (Redis Lua, Batch)
+- Redis hash key: `stock:sku:{skuId}` with fields `stock` and `lock`
+- Submit order flow pre-locks stock in Redis using Lua (`lock-stock.lua`) before DB update
+- Pay order deducts Redis lock using Lua (`deduct-lock.lua`)
+- Cancel order releases Redis lock using Lua (`unlock-stock.lua`)
+- Scripts are located in `src/main/resources/scripts/`
+
 #### Order Timeout Auto-Cancel
 - On order creation: `ZADD order:timeout:zset {expireTimestamp} {orderNo}`
 - Scheduler runs every 60s: `ZRANGEBYSCORE` for expired entries
@@ -183,6 +191,7 @@ WHERE id = #{skuId} AND stock >= #{count} AND version = #{version};
 |-------------|------|-----|-------|
 | `cart:user:{userId}` | Hash | - | Shopping cart cache |
 | `order:timeout:zset` | ZSet | - | Order timeout queue (score = expire timestamp) |
+| `stock:sku:{skuId}` | Hash | - | SKU stock pre-lock (fields: stock, lock) |
 
 ---
 

@@ -7,6 +7,7 @@ import com.helloworld.onlineshopping.modules.cart.dto.CartAddDTO;
 import com.helloworld.onlineshopping.modules.cart.dto.CartUpdateDTO;
 import com.helloworld.onlineshopping.modules.cart.entity.CartItemEntity;
 import com.helloworld.onlineshopping.modules.cart.mapper.CartItemMapper;
+import com.helloworld.onlineshopping.modules.cart.service.batch.CartItemBatchService;
 import com.helloworld.onlineshopping.modules.cart.vo.CartItemVO;
 import com.helloworld.onlineshopping.modules.cart.vo.CartVO;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSkuEntity;
@@ -19,14 +20,18 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
 @Service
 @RequiredArgsConstructor
-public class CartService {
+public class CartService extends ServiceImpl<CartItemMapper, CartItemEntity> {
 
     private final CartItemMapper cartItemMapper;
+    private final CartItemBatchService cartItemBatchService;
     private final ProductSkuMapper skuMapper;
     private final ProductSpuMapper spuMapper;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -37,13 +42,7 @@ public class CartService {
         Long userId = SecurityUtil.getCurrentUserId();
 
         // Verify SKU exists and has stock
-        ProductSkuEntity sku = skuMapper.selectById(dto.getSkuId());
-        if (sku == null) {
-            throw new BusinessException("Product SKU not found");
-        }
-        if (sku.getStock() < dto.getQuantity()) {
-            throw new BusinessException("Insufficient stock");
-        }
+        ProductSkuEntity sku = validateSkuAndStock(dto.getSkuId(), dto.getQuantity());
 
         // Check if item already in cart
         CartItemEntity existing = cartItemMapper.selectOne(
@@ -64,6 +63,72 @@ public class CartService {
         }
 
         // Invalidate Redis cache
+        redisTemplate.delete(CART_KEY_PREFIX + userId);
+    }
+
+    public void addItemsBatch(List<CartAddDTO> items) {
+        if (items == null || items.isEmpty()) {
+            throw new BusinessException("Cart items are required");
+        }
+
+        Long userId = SecurityUtil.getCurrentUserId();
+
+        Map<Long, Integer> skuQtyMap = new HashMap<>();
+        for (CartAddDTO item : items) {
+            if (item.getSkuId() == null || item.getQuantity() == null) {
+                throw new BusinessException("SKU ID and quantity are required");
+            }
+            skuQtyMap.merge(item.getSkuId(), item.getQuantity(), Integer::sum);
+        }
+
+        List<Long> skuIds = new ArrayList<>(skuQtyMap.keySet());
+        List<ProductSkuEntity> skuEntities = skuMapper.selectBatchIds(skuIds);
+        Map<Long, ProductSkuEntity> skuMap = skuEntities.stream()
+            .collect(java.util.stream.Collectors.toMap(ProductSkuEntity::getId, s -> s));
+
+        for (Map.Entry<Long, Integer> entry : skuQtyMap.entrySet()) {
+            ProductSkuEntity sku = skuMap.get(entry.getKey());
+            if (sku == null) {
+                throw new BusinessException("Product SKU not found: " + entry.getKey());
+            }
+            if (sku.getStock() < entry.getValue()) {
+                throw new BusinessException("Insufficient stock for SKU: " + entry.getKey());
+            }
+        }
+
+        List<CartItemEntity> existingItems = cartItemMapper.selectList(
+            new LambdaQueryWrapper<CartItemEntity>()
+                .eq(CartItemEntity::getUserId, userId)
+                .in(CartItemEntity::getSkuId, skuIds));
+
+        Map<Long, CartItemEntity> existingMap = existingItems.stream()
+            .collect(java.util.stream.Collectors.toMap(CartItemEntity::getSkuId, e -> e));
+
+        List<CartItemEntity> toUpdate = new ArrayList<>();
+        List<CartItemEntity> toInsert = new ArrayList<>();
+
+        for (Map.Entry<Long, Integer> entry : skuQtyMap.entrySet()) {
+            CartItemEntity existing = existingMap.get(entry.getKey());
+            if (existing != null) {
+                existing.setQuantity(existing.getQuantity() + entry.getValue());
+                toUpdate.add(existing);
+            } else {
+                CartItemEntity item = new CartItemEntity();
+                item.setUserId(userId);
+                item.setSkuId(entry.getKey());
+                item.setQuantity(entry.getValue());
+                item.setChecked(1);
+                toInsert.add(item);
+            }
+        }
+
+        if (!toUpdate.isEmpty()) {
+            cartItemBatchService.updateBatchById(toUpdate);
+        }
+        if (!toInsert.isEmpty()) {
+            cartItemBatchService.saveBatch(toInsert);
+        }
+
         redisTemplate.delete(CART_KEY_PREFIX + userId);
     }
 
@@ -172,5 +237,16 @@ public class CartService {
                 .eq(CartItemEntity::getUserId, userId)
                 .in(CartItemEntity::getSkuId, skuIds));
         redisTemplate.delete(CART_KEY_PREFIX + userId);
+    }
+
+    private ProductSkuEntity validateSkuAndStock(Long skuId, Integer quantity) {
+        ProductSkuEntity sku = skuMapper.selectById(skuId);
+        if (sku == null) {
+            throw new BusinessException("Product SKU not found");
+        }
+        if (sku.getStock() < quantity) {
+            throw new BusinessException("Insufficient stock");
+        }
+        return sku;
     }
 }

@@ -17,6 +17,7 @@ import com.helloworld.onlineshopping.modules.order.dto.OrderQueryDTO;
 import com.helloworld.onlineshopping.modules.order.dto.OrderSubmitDTO;
 import com.helloworld.onlineshopping.modules.order.entity.*;
 import com.helloworld.onlineshopping.modules.order.mapper.*;
+import com.helloworld.onlineshopping.modules.order.service.batch.OrderItemBatchService;
 import com.helloworld.onlineshopping.modules.order.vo.*;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSkuEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
@@ -24,7 +25,11 @@ import com.helloworld.onlineshopping.modules.product.mapper.ProductSkuMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +45,7 @@ public class OrderService {
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
+    private final OrderItemBatchService orderItemBatchService;
     private final OrderOperateLogMapper logMapper;
     private final PaymentRecordMapper paymentMapper;
     private final InventoryLogMapper inventoryLogMapper;
@@ -52,6 +58,21 @@ public class OrderService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final String ORDER_TIMEOUT_KEY = "order:timeout:zset";
+    private static final String STOCK_KEY_PREFIX = "stock:sku:";
+
+    private final DefaultRedisScript<Long> lockStockScript = new DefaultRedisScript<>();
+    private final DefaultRedisScript<Long> unlockStockScript = new DefaultRedisScript<>();
+    private final DefaultRedisScript<Long> deductLockScript = new DefaultRedisScript<>();
+
+    @PostConstruct
+    void initLuaScripts() {
+        lockStockScript.setLocation(new ClassPathResource("scripts/lock-stock.lua"));
+        lockStockScript.setResultType(Long.class);
+        unlockStockScript.setLocation(new ClassPathResource("scripts/unlock-stock.lua"));
+        unlockStockScript.setResultType(Long.class);
+        deductLockScript.setLocation(new ClassPathResource("scripts/deduct-lock.lua"));
+        deductLockScript.setResultType(Long.class);
+    }
 
     @Transactional
     public OrderSubmitVO submitOrder(OrderSubmitDTO dto) {
@@ -72,12 +93,51 @@ public class OrderService {
             throw new BusinessException("Cart items not found");
         }
 
+        Map<Long, Integer> skuQtyMap = new LinkedHashMap<>();
+        for (CartItemEntity item : cartItems) {
+            skuQtyMap.merge(item.getSkuId(), item.getQuantity(), Integer::sum);
+        }
+
+        List<Long> skuIds = new ArrayList<>(skuQtyMap.keySet());
+        List<ProductSkuEntity> skuEntities = skuMapper.selectBatchIds(skuIds);
+        Map<Long, ProductSkuEntity> skuMap = skuEntities.stream()
+            .collect(Collectors.toMap(ProductSkuEntity::getId, s -> s));
+
+        if (skuMap.size() != skuIds.size()) {
+            throw new BusinessException("SKU not found in cart items");
+        }
+
+        List<Long> spuIds = skuEntities.stream().map(ProductSkuEntity::getSpuId).distinct().collect(Collectors.toList());
+        Map<Long, ProductSpuEntity> spuMap = spuMapper.selectBatchIds(spuIds).stream()
+            .collect(Collectors.toMap(ProductSpuEntity::getId, s -> s));
+
+        for (ProductSkuEntity sku : skuEntities) {
+            if (sku.getStock() < skuQtyMap.getOrDefault(sku.getId(), 0)) {
+                throw new BusinessException("Insufficient stock for SKU: " + sku.getId());
+            }
+        }
+
+        ensureStockCache(skuEntities);
+
+        List<String> stockKeys = new ArrayList<>();
+        List<String> stockArgs = new ArrayList<>();
+        for (Map.Entry<Long, Integer> entry : skuQtyMap.entrySet()) {
+            stockKeys.add(stockKey(entry.getKey()));
+            stockArgs.add(String.valueOf(entry.getValue()));
+        }
+
+        Long lockResult = redisTemplate.execute(lockStockScript, stockKeys, stockArgs.toArray());
+        if (lockResult != null && lockResult > 0) {
+            Long failedSkuId = skuIds.get(lockResult.intValue() - 1);
+            throw new BusinessException("Insufficient stock for SKU: " + failedSkuId);
+        }
+
         // 3. Group by shop
         Map<Long, List<CartItemEntity>> shopGroups = new HashMap<>();
         for (CartItemEntity item : cartItems) {
-            ProductSkuEntity sku = skuMapper.selectById(item.getSkuId());
+            ProductSkuEntity sku = skuMap.get(item.getSkuId());
             if (sku == null) throw new BusinessException("SKU not found: " + item.getSkuId());
-            ProductSpuEntity spu = spuMapper.selectById(sku.getSpuId());
+            ProductSpuEntity spu = spuMap.get(sku.getSpuId());
             if (spu == null) throw new BusinessException("Product not found");
             shopGroups.computeIfAbsent(spu.getShopId(), k -> new ArrayList<>()).add(item);
         }
@@ -86,94 +146,99 @@ public class OrderService {
         List<String> orderNos = new ArrayList<>();
         OrderSubmitVO lastResult = null;
 
-        for (Map.Entry<Long, List<CartItemEntity>> entry : shopGroups.entrySet()) {
-            Long shopId = entry.getKey();
-            List<CartItemEntity> items = entry.getValue();
+        try {
+            for (Map.Entry<Long, List<CartItemEntity>> entry : shopGroups.entrySet()) {
+                Long shopId = entry.getKey();
+                List<CartItemEntity> items = entry.getValue();
 
-            String orderNo = OrderNoGenerator.generate();
-            BigDecimal totalAmount = BigDecimal.ZERO;
+                String orderNo = OrderNoGenerator.generate();
+                BigDecimal totalAmount = BigDecimal.ZERO;
 
-            // Create order items and lock stock
-            List<OrderItemEntity> orderItems = new ArrayList<>();
-            for (CartItemEntity cartItem : items) {
-                ProductSkuEntity sku = skuMapper.selectById(cartItem.getSkuId());
-                ProductSpuEntity spu = spuMapper.selectById(sku.getSpuId());
+                // Create order items and lock stock
+                List<OrderItemEntity> orderItems = new ArrayList<>();
+                for (CartItemEntity cartItem : items) {
+                    ProductSkuEntity sku = skuMap.get(cartItem.getSkuId());
+                    ProductSpuEntity spu = spuMap.get(sku.getSpuId());
 
-                // Lock stock with optimistic locking
-                int rows = skuMapper.lockStock(sku.getId(), cartItem.getQuantity(), sku.getVersion());
-                if (rows == 0) {
-                    throw new BusinessException("Insufficient stock for: " + spu.getTitle());
+                    // Lock stock with optimistic locking
+                    int rows = skuMapper.lockStock(sku.getId(), cartItem.getQuantity(), sku.getVersion());
+                    if (rows == 0) {
+                        throw new BusinessException("Insufficient stock for: " + spu.getTitle());
+                    }
+
+                    // Log inventory change
+                    InventoryLogEntity invLog = new InventoryLogEntity();
+                    invLog.setSkuId(sku.getId());
+                    invLog.setOrderNo(orderNo);
+                    invLog.setChangeCount(-cartItem.getQuantity());
+                    invLog.setBeforeStock(sku.getStock());
+                    invLog.setAfterStock(sku.getStock() - cartItem.getQuantity());
+                    invLog.setOperateType("LOCK");
+                    invLog.setRemark("Order submit lock stock");
+                    inventoryLogMapper.insert(invLog);
+
+                    BigDecimal itemTotal = sku.getSalePrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
+                    totalAmount = totalAmount.add(itemTotal);
+
+                    OrderItemEntity orderItem = new OrderItemEntity();
+                    orderItem.setOrderNo(orderNo);
+                    orderItem.setSpuId(spu.getId());
+                    orderItem.setSkuId(sku.getId());
+                    orderItem.setProductTitle(spu.getTitle());
+                    orderItem.setSkuName(sku.getSkuName());
+                    orderItem.setSkuSpecJson(sku.getSpecJson());
+                    orderItem.setProductImage(sku.getImageUrl() != null ? sku.getImageUrl() : spu.getMainImage());
+                    orderItem.setSalePrice(sku.getSalePrice());
+                    orderItem.setQuantity(cartItem.getQuantity());
+                    orderItem.setTotalAmount(itemTotal);
+                    orderItem.setReviewStatus(0);
+                    orderItems.add(orderItem);
                 }
 
-                // Log inventory change
-                InventoryLogEntity invLog = new InventoryLogEntity();
-                invLog.setSkuId(sku.getId());
-                invLog.setOrderNo(orderNo);
-                invLog.setChangeCount(-cartItem.getQuantity());
-                invLog.setBeforeStock(sku.getStock());
-                invLog.setAfterStock(sku.getStock() - cartItem.getQuantity());
-                invLog.setOperateType("LOCK");
-                invLog.setRemark("Order submit lock stock");
-                inventoryLogMapper.insert(invLog);
+                // Create order
+                String fullAddress = address.getProvince() + address.getCity() + address.getDistrict() + address.getDetailAddress();
+                OrderEntity order = new OrderEntity();
+                order.setOrderNo(orderNo);
+                order.setUserId(userId);
+                order.setShopId(shopId);
+                order.setTotalAmount(totalAmount);
+                order.setDiscountAmount(BigDecimal.ZERO);
+                order.setPayAmount(totalAmount);
+                order.setFreightAmount(BigDecimal.ZERO);
+                order.setOrderStatus(0); // unpaid
+                order.setPayStatus(0);
+                order.setSourceType(1);
+                order.setReceiverName(address.getReceiverName());
+                order.setReceiverPhone(address.getReceiverPhone());
+                order.setReceiverAddress(fullAddress);
+                order.setRemark(dto.getRemark());
+                orderMapper.insert(order);
 
-                BigDecimal itemTotal = sku.getSalePrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
-                totalAmount = totalAmount.add(itemTotal);
+                // Set order id on items and batch insert
+                for (OrderItemEntity oi : orderItems) {
+                    oi.setOrderId(order.getId());
+                }
+                orderItemBatchService.saveBatch(orderItems);
 
-                OrderItemEntity orderItem = new OrderItemEntity();
-                orderItem.setOrderNo(orderNo);
-                orderItem.setSpuId(spu.getId());
-                orderItem.setSkuId(sku.getId());
-                orderItem.setProductTitle(spu.getTitle());
-                orderItem.setSkuName(sku.getSkuName());
-                orderItem.setSkuSpecJson(sku.getSpecJson());
-                orderItem.setProductImage(sku.getImageUrl() != null ? sku.getImageUrl() : spu.getMainImage());
-                orderItem.setSalePrice(sku.getSalePrice());
-                orderItem.setQuantity(cartItem.getQuantity());
-                orderItem.setTotalAmount(itemTotal);
-                orderItem.setReviewStatus(0);
-                orderItems.add(orderItem);
+                // Log operation
+                saveOperateLog(order.getId(), orderNo, null, 0, userId, "BUYER", "CREATE", "Order created");
+
+                // Add to timeout queue (30 minutes)
+                long expireTime = System.currentTimeMillis() + 30 * 60 * 1000;
+                redisTemplate.opsForZSet().add(ORDER_TIMEOUT_KEY, orderNo, expireTime);
+
+                orderNos.add(orderNo);
+
+                lastResult = new OrderSubmitVO();
+                lastResult.setOrderNo(orderNo);
+                lastResult.setTotalAmount(totalAmount);
+                lastResult.setDiscountAmount(BigDecimal.ZERO);
+                lastResult.setFreightAmount(BigDecimal.ZERO);
+                lastResult.setPayAmount(totalAmount);
             }
-
-            // Create order
-            String fullAddress = address.getProvince() + address.getCity() + address.getDistrict() + address.getDetailAddress();
-            OrderEntity order = new OrderEntity();
-            order.setOrderNo(orderNo);
-            order.setUserId(userId);
-            order.setShopId(shopId);
-            order.setTotalAmount(totalAmount);
-            order.setDiscountAmount(BigDecimal.ZERO);
-            order.setPayAmount(totalAmount);
-            order.setFreightAmount(BigDecimal.ZERO);
-            order.setOrderStatus(0); // unpaid
-            order.setPayStatus(0);
-            order.setSourceType(1);
-            order.setReceiverName(address.getReceiverName());
-            order.setReceiverPhone(address.getReceiverPhone());
-            order.setReceiverAddress(fullAddress);
-            order.setRemark(dto.getRemark());
-            orderMapper.insert(order);
-
-            // Set order id on items and insert
-            for (OrderItemEntity oi : orderItems) {
-                oi.setOrderId(order.getId());
-                orderItemMapper.insert(oi);
-            }
-
-            // Log operation
-            saveOperateLog(order.getId(), orderNo, null, 0, userId, "BUYER", "CREATE", "Order created");
-
-            // Add to timeout queue (30 minutes)
-            long expireTime = System.currentTimeMillis() + 30 * 60 * 1000;
-            redisTemplate.opsForZSet().add(ORDER_TIMEOUT_KEY, orderNo, expireTime);
-
-            orderNos.add(orderNo);
-
-            lastResult = new OrderSubmitVO();
-            lastResult.setOrderNo(orderNo);
-            lastResult.setTotalAmount(totalAmount);
-            lastResult.setDiscountAmount(BigDecimal.ZERO);
-            lastResult.setFreightAmount(BigDecimal.ZERO);
-            lastResult.setPayAmount(totalAmount);
+        } catch (RuntimeException ex) {
+            redisTemplate.execute(unlockStockScript, stockKeys, stockArgs.toArray());
+            throw ex;
         }
 
         // 5. Clear purchased items from cart
@@ -206,6 +271,17 @@ public class OrderService {
         // Deduct locked stock
         List<OrderItemEntity> items = orderItemMapper.selectList(
             new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+        Map<Long, Integer> skuQtyMap = new LinkedHashMap<>();
+        for (OrderItemEntity item : items) {
+            skuQtyMap.merge(item.getSkuId(), item.getQuantity(), Integer::sum);
+        }
+        List<String> stockKeys = new ArrayList<>();
+        List<String> stockArgs = new ArrayList<>();
+        for (Map.Entry<Long, Integer> entry : skuQtyMap.entrySet()) {
+            stockKeys.add(stockKey(entry.getKey()));
+            stockArgs.add(String.valueOf(entry.getValue()));
+        }
+
         for (OrderItemEntity item : items) {
             skuMapper.deductStock(item.getSkuId(), item.getQuantity());
             // Update SPU sales count
@@ -213,6 +289,13 @@ public class OrderService {
             if (spu != null) {
                 spu.setSalesCount(spu.getSalesCount() + item.getQuantity());
                 spuMapper.updateById(spu);
+            }
+        }
+
+        if (!stockKeys.isEmpty()) {
+            Long deductResult = redisTemplate.execute(deductLockScript, stockKeys, stockArgs.toArray());
+            if (deductResult != null && deductResult > 0) {
+                log.warn("Redis lock stock not found for sku index {}", deductResult);
             }
         }
 
@@ -267,8 +350,10 @@ public class OrderService {
         // Unlock stock
         List<OrderItemEntity> items = orderItemMapper.selectList(
             new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+        Map<Long, Integer> skuQtyMap = new LinkedHashMap<>();
         for (OrderItemEntity item : items) {
             skuMapper.unlockStock(item.getSkuId(), item.getQuantity());
+            skuQtyMap.merge(item.getSkuId(), item.getQuantity(), Integer::sum);
 
             ProductSkuEntity sku = skuMapper.selectById(item.getSkuId());
             InventoryLogEntity invLog = new InventoryLogEntity();
@@ -280,6 +365,16 @@ public class OrderService {
             invLog.setOperateType("UNLOCK");
             invLog.setRemark("Order cancelled, unlock stock");
             inventoryLogMapper.insert(invLog);
+        }
+
+        if (!skuQtyMap.isEmpty()) {
+            List<String> stockKeys = new ArrayList<>();
+            List<String> stockArgs = new ArrayList<>();
+            for (Map.Entry<Long, Integer> entry : skuQtyMap.entrySet()) {
+                stockKeys.add(stockKey(entry.getKey()));
+                stockArgs.add(String.valueOf(entry.getValue()));
+            }
+            redisTemplate.execute(unlockStockScript, stockKeys, stockArgs.toArray());
         }
 
         // Remove from timeout queue
@@ -446,6 +541,27 @@ public class OrderService {
         log.setRemark(remark);
         log.setOperateTime(LocalDateTime.now());
         logMapper.insert(log);
+    }
+
+    private void ensureStockCache(List<ProductSkuEntity> skuEntities) {
+        HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
+        for (ProductSkuEntity sku : skuEntities) {
+            String key = stockKey(sku.getId());
+            Object cachedStock = ops.get(key, "stock");
+            Object cachedLock = ops.get(key, "lock");
+            boolean stockOk = cachedStock instanceof Number;
+            boolean lockOk = cachedLock instanceof Number;
+            if (!stockOk) {
+                ops.put(key, "stock", sku.getStock());
+            }
+            if (!lockOk) {
+                ops.put(key, "lock", sku.getLockStock());
+            }
+        }
+    }
+
+    private String stockKey(Long skuId) {
+        return STOCK_KEY_PREFIX + skuId;
     }
 
     public PageResult<OrderListVO> getMerchantOrders(OrderQueryDTO dto) {

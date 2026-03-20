@@ -22,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,5 +131,37 @@ class CartServiceTest {
         cartService.removeItem(testSkuId);
         CartVO cart = cartService.getCartList();
         assertTrue(cart.getItems().isEmpty());
+    }
+
+    @Test
+    void testBatchAddItems() {
+        ProductSkuEntity baseSku = skuMapper.selectById(testSkuId);
+        ProductSkuEntity secondSku = new ProductSkuEntity();
+        secondSku.setSpuId(baseSku.getSpuId());
+        secondSku.setSkuCode("TEST-SKU-002");
+        secondSku.setSkuName("Test SKU 2");
+        secondSku.setSalePrice(new BigDecimal("109.00"));
+        secondSku.setStock(50);
+        secondSku.setLockStock(0);
+        secondSku.setStatus(1);
+        secondSku.setVersion(0);
+        skuMapper.insert(secondSku);
+
+        CartAddDTO item1 = new CartAddDTO();
+        item1.setSkuId(testSkuId);
+        item1.setQuantity(2);
+
+        CartAddDTO item2 = new CartAddDTO();
+        item2.setSkuId(secondSku.getId());
+        item2.setQuantity(1);
+
+        List<CartAddDTO> items = new ArrayList<>();
+        items.add(item1);
+        items.add(item2);
+
+        cartService.addItemsBatch(items);
+
+        CartVO cart = cartService.getCartList();
+        assertEquals(2, cart.getItems().size());
     }
 }

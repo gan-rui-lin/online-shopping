@@ -75,6 +75,20 @@ Open [http://localhost:8080/doc.html](http://localhost:8080/doc.html) after star
 | -------- | -------- |
 | admin    | admin123 |
 
+## Testing
+
+Make sure MySQL and Redis are running, then execute:
+
+```bash
+./mvnw test
+```
+
+Run targeted tests only:
+
+```bash
+./mvnw test -Dtest=CartServiceTest,OrderServiceTest
+```
+
 ## Project Structure
 
 ```

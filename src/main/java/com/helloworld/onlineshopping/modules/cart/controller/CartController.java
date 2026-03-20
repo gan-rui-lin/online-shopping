@@ -2,6 +2,7 @@ package com.helloworld.onlineshopping.modules.cart.controller;
 
 import com.helloworld.onlineshopping.common.api.Result;
 import com.helloworld.onlineshopping.modules.cart.dto.CartAddDTO;
+import com.helloworld.onlineshopping.modules.cart.dto.CartBatchAddDTO;
 import com.helloworld.onlineshopping.modules.cart.dto.CartUpdateDTO;
 import com.helloworld.onlineshopping.modules.cart.service.CartService;
 import com.helloworld.onlineshopping.modules.cart.vo.CartVO;
@@ -23,6 +24,13 @@ public class CartController {
     @PostMapping("/add")
     public Result<Void> add(@Valid @RequestBody CartAddDTO dto) {
         cartService.addItem(dto);
+        return Result.success();
+    }
+
+    @Operation(summary = "Batch add items to cart")
+    @PostMapping("/batch-add")
+    public Result<Void> batchAdd(@Valid @RequestBody CartBatchAddDTO dto) {
+        cartService.addItemsBatch(dto.getItems());
         return Result.success();
     }
 

@@ -77,13 +77,13 @@
 
 1.3 批量操作优化
 
-□ 引入批量插入/更新
+✅ 引入批量插入/更新
 
 - 购物车批量添加
 - 订单项批量创建
 - 使用 MyBatis-Plus saveBatch/updateBatchById
 
-□ 库存扣减优化
+✅ 库存扣减优化
 
 - 当前：单条 UPDATE 乐观锁
 - 改进：批量扣减 + Lua 脚本（Redis）
