@@ -17,6 +17,7 @@ import com.helloworld.onlineshopping.modules.order.dto.OrderQueryDTO;
 import com.helloworld.onlineshopping.modules.order.dto.OrderSubmitDTO;
 import com.helloworld.onlineshopping.modules.order.entity.*;
 import com.helloworld.onlineshopping.modules.order.mapper.*;
+import com.helloworld.onlineshopping.modules.order.mq.OrderMessageProducer;
 import com.helloworld.onlineshopping.modules.order.vo.*;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSkuEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
@@ -50,6 +51,8 @@ public class OrderService {
     private final MerchantShopMapper shopMapper;
     private final CartService cartService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final OrderMessageProducer orderMessageProducer;
+    private final OrderAsyncService orderAsyncService;
 
     private static final String ORDER_TIMEOUT_KEY = "order:timeout:zset";
 
@@ -165,6 +168,7 @@ public class OrderService {
             // Add to timeout queue (30 minutes)
             long expireTime = System.currentTimeMillis() + 30 * 60 * 1000;
             redisTemplate.opsForZSet().add(ORDER_TIMEOUT_KEY, orderNo, expireTime);
+            orderMessageProducer.sendOrderTimeoutMessage(orderNo);
 
             orderNos.add(orderNo);
 
@@ -232,6 +236,10 @@ public class OrderService {
 
         // Log
         saveOperateLog(order.getId(), orderNo, 0, 1, userId, "BUYER", "PAY", "Payment completed");
+        for (OrderItemEntity item : items) {
+            orderAsyncService.updateSalesStat(item.getSpuId(), item.getQuantity());
+        }
+        orderAsyncService.recordOrderStatusLog(orderNo, "PAY", "BUYER");
 
         PaymentVO vo = new PaymentVO();
         vo.setOrderNo(orderNo);
@@ -286,6 +294,22 @@ public class OrderService {
         redisTemplate.opsForZSet().remove(ORDER_TIMEOUT_KEY, order.getOrderNo());
 
         saveOperateLog(order.getId(), order.getOrderNo(), beforeStatus, 4, operatorId, role, "CANCEL", reason);
+        orderAsyncService.recordOrderStatusLog(order.getOrderNo(), "CANCEL", role);
+    }
+
+    @Transactional
+    public void cancelTimeoutOrderByOrderNo(String orderNo) {
+        OrderEntity order = orderMapper.selectOne(
+            new LambdaQueryWrapper<OrderEntity>().eq(OrderEntity::getOrderNo, orderNo));
+        if (order == null) {
+            redisTemplate.opsForZSet().remove(ORDER_TIMEOUT_KEY, orderNo);
+            return;
+        }
+        if (order.getOrderStatus() != 0) {
+            redisTemplate.opsForZSet().remove(ORDER_TIMEOUT_KEY, orderNo);
+            return;
+        }
+        doCancelOrder(order, "Timeout auto cancel", 0L, "SYSTEM");
     }
 
     @Transactional
