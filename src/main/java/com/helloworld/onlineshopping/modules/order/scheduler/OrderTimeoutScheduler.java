@@ -36,7 +36,7 @@ public class OrderTimeoutScheduler {
                     new LambdaQueryWrapper<OrderEntity>().eq(OrderEntity::getOrderNo, orderNo));
                 if (order != null && order.getOrderStatus() == 0) {
                     log.info("Auto cancelling timeout order: {}", orderNo);
-                    orderService.doCancelOrder(order, "Timeout auto cancel", 0L, "SYSTEM");
+                    orderService.cancelTimeoutOrderByOrderNo(orderNo);
                 } else {
                     redisTemplate.opsForZSet().remove(ORDER_TIMEOUT_KEY, orderNo);
                 }

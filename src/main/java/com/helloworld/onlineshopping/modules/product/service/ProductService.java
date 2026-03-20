@@ -18,10 +18,12 @@ import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductImageMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSkuMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
+import com.helloworld.onlineshopping.modules.product.search.EsProductService;
 import com.helloworld.onlineshopping.modules.product.vo.ProductDetailVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSkuVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import jakarta.annotation.PostConstruct;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductService {
@@ -48,6 +51,7 @@ public class ProductService {
     private final MerchantShopMapper shopMapper;
     private final BrowseHistoryService browseHistoryService;
     private final RedissonClient redissonClient;
+    private final EsProductService esProductService;
     
     // Bloom Filter instance
     private RBloomFilter<Long> productBloomFilter;
@@ -110,6 +114,7 @@ public class ProductService {
         }
 
         spuMapper.insert(spu);
+        esProductService.syncProduct(spu);
         
         // Add new product ID to Bloom Filter to avoid false cache penetration blocking
         if (productBloomFilter != null) {
@@ -152,6 +157,16 @@ public class ProductService {
     }
 
     public PageResult<ProductSimpleVO> searchProducts(ProductSearchDTO dto) {
+        try {
+            return esProductService.searchProducts(dto);
+        } catch (Exception ex) {
+            log.warn("ES search failed, fallback to DB search, keyword={}", dto.getKeyword(), ex);
+        }
+
+        return searchProductsByDb(dto);
+    }
+
+    private PageResult<ProductSimpleVO> searchProductsByDb(ProductSearchDTO dto) {
         Page<ProductSpuEntity> page = new Page<>(dto.getPageNum(), dto.getPageSize());
         LambdaQueryWrapper<ProductSpuEntity> wrapper = new LambdaQueryWrapper<ProductSpuEntity>()
             .eq(ProductSpuEntity::getStatus, 1)
@@ -287,6 +302,7 @@ public class ProductService {
         }
         spu.setStatus(status);
         spuMapper.updateById(spu);
+        esProductService.syncProduct(spu);
     }
 
     @CacheEvict(value = "product:detail", key = "#spuId")
@@ -365,6 +381,8 @@ public class ProductService {
                 imageMapper.insert(image);
             }
         }
+
+        esProductService.syncProductById(spuId);
     }
 
     public PageResult<ProductSimpleVO> getMyProducts(Integer pageNum, Integer pageSize) {
@@ -423,5 +441,7 @@ public class ProductService {
             sku.setDeleted(1);
             skuMapper.updateById(sku);
         }
+
+        esProductService.deleteProduct(spuId);
     }
 }
