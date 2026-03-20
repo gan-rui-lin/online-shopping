@@ -29,10 +29,15 @@ spring:
           max-wait: 3000ms
     elasticsearch:
       repositories:
-        enabled: true
+        enabled: ${APP_SEARCH_ES_ENABLED:false}
 
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
+
+app:
+  search:
+    es:
+      enabled: ${APP_SEARCH_ES_ENABLED:false}
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}

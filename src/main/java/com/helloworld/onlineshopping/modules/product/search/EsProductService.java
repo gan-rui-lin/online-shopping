@@ -9,6 +9,7 @@ import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "app.search.es.enabled", havingValue = "true")
 public class EsProductService {
 
     private final ElasticsearchOperations elasticsearchOperations;
