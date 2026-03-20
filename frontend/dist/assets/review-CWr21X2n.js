@@ -1,1 +1,0 @@
-import{Z as t}from"./index-Cj8uu14o.js";function s(e,r){return t.get(`/review/product/${e}`,{...r,spuId:void 0})}function o(e){return t.get(`/review/product/${e}/statistics`)}function u(e){return t.post("/review",e)}export{s as a,u as c,o as g};

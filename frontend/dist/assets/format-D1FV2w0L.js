@@ -1,1 +1,0 @@
-import{am as a}from"./index-Cj8uu14o.js";function f(r){return r==null?"¥0.00":`¥${Number(r).toFixed(2)}`}function s(r,t="YYYY-MM-DD HH:mm:ss"){return r?a(r).format(t):""}function o(r){if(!r)return{};try{return JSON.parse(r)}catch{return{}}}function i(r){const t=o(r);return Object.entries(t).map(([n,e])=>`${n}: ${e}`).join(", ")}export{s as a,f as b,i as f};

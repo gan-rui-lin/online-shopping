@@ -1,1 +1,0 @@
-import{Z as t}from"./index-Cj8uu14o.js";function a(){return t.get("/admin/dashboard")}function e(r){return t.post(`/admin/product/${r}/approve`)}function n(r){return t.post(`/admin/product/${r}/reject`)}export{e as a,a as g,n as r};

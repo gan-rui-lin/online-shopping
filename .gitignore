@@ -37,3 +37,25 @@ build/
 
 ### Chinese files ###
 *CN.*
+
+### Frontend (Node/Vite/Vue/etc.) ###
+frontend/node_modules/
+frontend/dist/
+frontend/.nuxt/
+frontend/.output/
+frontend/.vite/
+frontend/.cache/
+frontend/.turbo/
+frontend/.parcel-cache/
+frontend/coverage/
+frontend/.eslintcache
+frontend/.stylelintcache
+frontend/.DS_Store
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/.npmrc
+frontend/.pnpm-store/
+frontend/.idea
+frontend/.vscode/

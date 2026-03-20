@@ -1,1 +1,0 @@
-import{Z as r}from"./index-Cj8uu14o.js";function a(){return r.get("/cart/list")}function u(t){return r.post("/cart/add",t)}function n(t){return r.put("/cart/update",t)}function o(t){return r.delete(`/cart/item/${t}`)}export{u as a,a as g,o as r,n as u};
