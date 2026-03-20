@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -51,7 +52,7 @@ public class ProductService {
     private final MerchantShopMapper shopMapper;
     private final BrowseHistoryService browseHistoryService;
     private final RedissonClient redissonClient;
-    private final EsProductService esProductService;
+    private final ObjectProvider<EsProductService> esProductServiceProvider;
     
     // Bloom Filter instance
     private RBloomFilter<Long> productBloomFilter;
@@ -114,7 +115,7 @@ public class ProductService {
         }
 
         spuMapper.insert(spu);
-        esProductService.syncProduct(spu);
+        syncProductToEs(spu);
         
         // Add new product ID to Bloom Filter to avoid false cache penetration blocking
         if (productBloomFilter != null) {
@@ -157,10 +158,13 @@ public class ProductService {
     }
 
     public PageResult<ProductSimpleVO> searchProducts(ProductSearchDTO dto) {
-        try {
-            return esProductService.searchProducts(dto);
-        } catch (Exception ex) {
-            log.warn("ES search failed, fallback to DB search, keyword={}", dto.getKeyword(), ex);
+        EsProductService esProductService = esProductServiceProvider.getIfAvailable();
+        if (esProductService != null) {
+            try {
+                return esProductService.searchProducts(dto);
+            } catch (Exception ex) {
+                log.warn("ES search failed, fallback to DB search, keyword={}", dto.getKeyword(), ex);
+            }
         }
 
         return searchProductsByDb(dto);
@@ -302,7 +306,7 @@ public class ProductService {
         }
         spu.setStatus(status);
         spuMapper.updateById(spu);
-        esProductService.syncProduct(spu);
+        syncProductToEs(spu);
     }
 
     @CacheEvict(value = "product:detail", key = "#spuId")
@@ -382,7 +386,7 @@ public class ProductService {
             }
         }
 
-        esProductService.syncProductById(spuId);
+        syncProductToEsById(spuId);
     }
 
     public PageResult<ProductSimpleVO> getMyProducts(Integer pageNum, Integer pageSize) {
@@ -442,6 +446,42 @@ public class ProductService {
             skuMapper.updateById(sku);
         }
 
-        esProductService.deleteProduct(spuId);
+        deleteProductFromEs(spuId);
+    }
+
+    private void syncProductToEs(ProductSpuEntity spu) {
+        EsProductService esProductService = esProductServiceProvider.getIfAvailable();
+        if (esProductService == null) {
+            return;
+        }
+        try {
+            esProductService.syncProduct(spu);
+        } catch (Exception ex) {
+            log.warn("Sync product to ES failed, spuId={}", spu != null ? spu.getId() : null, ex);
+        }
+    }
+
+    private void syncProductToEsById(Long spuId) {
+        EsProductService esProductService = esProductServiceProvider.getIfAvailable();
+        if (esProductService == null) {
+            return;
+        }
+        try {
+            esProductService.syncProductById(spuId);
+        } catch (Exception ex) {
+            log.warn("Sync product to ES by id failed, spuId={}", spuId, ex);
+        }
+    }
+
+    private void deleteProductFromEs(Long spuId) {
+        EsProductService esProductService = esProductServiceProvider.getIfAvailable();
+        if (esProductService == null) {
+            return;
+        }
+        try {
+            esProductService.deleteProduct(spuId);
+        } catch (Exception ex) {
+            log.warn("Delete product from ES failed, spuId={}", spuId, ex);
+        }
     }
 }

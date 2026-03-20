@@ -13,8 +13,10 @@ import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import com.helloworld.onlineshopping.modules.product.search.EsProductService;
 import com.helloworld.onlineshopping.modules.product.service.ProductService;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.ObjectProvider;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
@@ -48,9 +50,16 @@ class ProductServiceSearchTest {
     private RedissonClient redissonClient;
     @Mock
     private EsProductService esProductService;
+    @Mock
+    private ObjectProvider<EsProductService> esProductServiceProvider;
 
     @InjectMocks
     private ProductService productService;
+
+    @BeforeEach
+    void setUp() {
+        when(esProductServiceProvider.getIfAvailable()).thenReturn(esProductService);
+    }
 
     /**
      * 说明：当 ES 查询成功时，ProductService 应直接返回 ES 结果，不触发 DB 回退。
@@ -91,12 +100,6 @@ class ProductServiceSearchTest {
         dto.setSortOrder("desc");
         dto.setMinPrice(new BigDecimal("100"));
         dto.setMaxPrice(new BigDecimal("2000"));
-
-
-    /**
-     * 说明：当 ES 失败且传入复杂过滤参数时，服务应稳定走 DB 分支并正常返回分页结构。
-     * 样例：keyword=phone，categoryId=9，brand=Apple，sort=sales。
-     */
         when(esProductService.searchProducts(any(ProductSearchDTO.class)))
             .thenThrow(new RuntimeException("ES unavailable"));
 
@@ -133,6 +136,10 @@ class ProductServiceSearchTest {
         verify(shopMapper).selectById(11L);
     }
 
+    /**
+     * 说明：当 ES 失败且传入复杂过滤参数时，服务应稳定走 DB 分支并正常返回分页结构。
+     * 样例：keyword=phone，categoryId=9，brand=Apple，sort=sales。
+     */
     @Test
     void searchProducts_shouldBuildDbWrapperWithFiltersAndSalesSort_whenEsFails() {
         ProductSearchDTO dto = new ProductSearchDTO();
