@@ -37,6 +37,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class BackendSpecFlowIntegrationTest {
 
+    private static final String DEFAULT_TEST_PASSWORD =
+        System.getProperty("test.password", "test123456");
+    private static final String ADMIN_USERNAME =
+        System.getProperty("test.admin.username", "admin");
+    private static final String ADMIN_PASSWORD =
+        System.getProperty("test.admin.password", "admin123");
+    private static final Long DEFAULT_CATEGORY_ID =
+        Long.parseLong(System.getProperty("test.default.categoryId", "1"));
+    private static final String DEFAULT_CONTACT_PHONE =
+        System.getProperty("test.contact.phone", "13800138000");
+    private static final String DEFAULT_RECEIVER_PHONE =
+        System.getProperty("test.receiver.phone", "13900000000");
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -65,14 +78,14 @@ class BackendSpecFlowIntegrationTest {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         String buyerUsername = "buyer_" + suffix;
         String merchantUsername = "merchant_" + suffix;
-        String password = "test123456";
+        String password = DEFAULT_TEST_PASSWORD;
 
         register(buyerUsername, password, "Buyer " + suffix);
         register(merchantUsername, password, "Merchant " + suffix);
 
         String buyerToken = loginAndGetToken(buyerUsername, password);
         String merchantToken = loginAndGetToken(merchantUsername, password);
-        String adminToken = loginAndGetToken("admin", "admin123");
+        String adminToken = loginAndGetToken(ADMIN_USERNAME, ADMIN_PASSWORD);
 
         String shopName = "Shop-" + suffix;
         mockMvc.perform(post("/api/merchant/apply")
@@ -83,9 +96,9 @@ class BackendSpecFlowIntegrationTest {
                       "shopName":"%s",
                       "businessLicenseNo":"BL-%s",
                       "contactName":"Owner %s",
-                      "contactPhone":"13800138000"
+                                            "contactPhone":"%s"
                     }
-                    """.formatted(shopName, suffix, suffix)))
+                                        """.formatted(shopName, suffix, suffix, DEFAULT_CONTACT_PHONE)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200));
 
@@ -125,7 +138,7 @@ class BackendSpecFlowIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
-                      "categoryId":1,
+                      "categoryId":%d,
                       "brandName":"SpecBrand",
                       "title":"%s",
                       "subTitle":"Spec Flow Device",
@@ -144,7 +157,7 @@ class BackendSpecFlowIntegrationTest {
                       ],
                       "imageList":["https://example.com/specflow-1.png"]
                     }
-                    """.formatted(productTitle, suffix)))
+                    """.formatted(DEFAULT_CATEGORY_ID, productTitle, suffix)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200));
 
@@ -181,7 +194,7 @@ class BackendSpecFlowIntegrationTest {
                 .content("""
                     {
                       "receiverName":"Buyer Receiver",
-                      "receiverPhone":"13900000000",
+                      "receiverPhone":"%s",
                       "province":"广东省",
                       "city":"深圳市",
                       "district":"南山区",
@@ -189,7 +202,7 @@ class BackendSpecFlowIntegrationTest {
                       "isDefault":1,
                       "tagName":"home"
                     }
-                    """))
+                    """.formatted(DEFAULT_RECEIVER_PHONE)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200));
 
@@ -282,7 +295,7 @@ class BackendSpecFlowIntegrationTest {
     void shouldCancelUnpaidOrder() throws Exception {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         String username = "buyer_cancel_" + suffix;
-        String password = "test123456";
+        String password = DEFAULT_TEST_PASSWORD;
 
         register(username, password, "BuyerCancel " + suffix);
         String token = loginAndGetToken(username, password);
@@ -308,7 +321,7 @@ class BackendSpecFlowIntegrationTest {
         assertNotNull(createAddressResult);
 
         MerchantShopEntity shop = new MerchantShopEntity();
-        shop.setUserId(1L);
+        shop.setUserId(Math.abs((long) suffix.hashCode()) + 10000L);
         shop.setShopName("CancelFlowShop-" + suffix);
         shop.setShopStatus(1);
         shop.setScore(new BigDecimal("5.0"));
@@ -316,7 +329,7 @@ class BackendSpecFlowIntegrationTest {
 
         ProductSpuEntity spu = new ProductSpuEntity();
         spu.setShopId(shop.getId());
-        spu.setCategoryId(1L);
+        spu.setCategoryId(DEFAULT_CATEGORY_ID);
         spu.setBrandName("CancelBrand");
         spu.setTitle("Cancel Flow Product " + suffix);
         spu.setSubTitle("cancel test spu");
