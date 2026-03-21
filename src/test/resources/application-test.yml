@@ -2,7 +2,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/online_shopping?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:123123}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -25,3 +25,4 @@ jwt:
 logging:
   level:
     root: WARN
+

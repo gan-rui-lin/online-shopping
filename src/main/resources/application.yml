@@ -5,7 +5,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/online_shopping?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:123123}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5
@@ -95,6 +95,28 @@ logging:
   level:
     com.helloworld.onlineshopping: debug
     com.baomidou.mybatisplus: debug
+
+# OSS Configuration
+oss:
+  endpoint: http://localhost:9000
+  bucket: test-bucket
+  access-key: testuser
+  secret-key: testpass
+  cdn-domain: ""  # 本地测试不用 CDN
+
+# File Upload Configuration
+#file:
+#  upload:
+#    max-size: 10MB
+#    allowed-types: image/jpeg,image/png,image/gif,image/webp
+#    temp-dir: ${TEMP_DIR:/tmp/uploads}
+#    cleanup-interval: 3600000  # 1 hour in milliseconds
+file:
+  upload:
+    max-size: 10MB
+    allowed-types: image/jpeg,image/png,image/gif,image/webp
+    temp-dir: ./tmp/uploads  # 使用项目本地目录，方便查看
+    cleanup-interval: 60000  # 1 分钟清理一次临时文件，测试方便
 
 order:
   timeout:
