@@ -54,12 +54,53 @@ All configurable variables:
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_PASSWORD` | *(empty)* | Redis password |
+| `APP_SEARCH_ES_ENABLED` | `true` | Enable Elasticsearch search |
+| `ES_URIS` | `http://127.0.0.1:9200` | Elasticsearch endpoint |
 | `JWT_SECRET` | *(built-in default)* | JWT signing key (Base64) |
 
 ### 4. Run
 
 ```bash
 ./mvnw spring-boot:run
+```
+
+### Windows: Start backend with Elasticsearch enabled
+
+PowerShell script (checks ES, sets env vars, then starts backend):
+
+```powershell
+$env:DB_PASSWORD="your_mysql_password"
+./scripts/start-es-and-backend.ps1
+```
+
+If you want the script to start ES using Docker automatically:
+
+```powershell
+./scripts/start-es-and-backend.ps1 -StartEsWithDocker
+```
+
+If you want the script to start local ES from D drive automatically:
+
+```powershell
+./scripts/start-es-and-backend.ps1 -StartEsLocal
+```
+
+Custom local ES path example:
+
+```powershell
+./scripts/start-es-and-backend.ps1 -StartEsLocal -EsBatPath "D:\Develop\elasticsearch-9.3.2\bin\elasticsearch.bat"
+```
+
+If ES startup is slow, extend wait time:
+
+```powershell
+./scripts/start-es-and-backend.ps1 -StartEsLocal -EsWaitSeconds 300
+```
+
+If your local MySQL allows empty password, you can bypass DB password pre-check:
+
+```powershell
+./scripts/start-es-and-backend.ps1 -SkipDbCredentialCheck
 ```
 
 ### 5. API Documentation
