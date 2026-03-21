@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { searchProducts } from '@/api/product'
 import { getCategoryTree } from '@/api/category'
 import type { ProductSimpleVO, CategoryVO, ProductSearchDTO } from '@/types/product'
-import type { PageResult } from '@/types/common'
 import ProductCard from '@/components/ProductCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
 const route = useRoute()
-const router = useRouter()
+const { t } = useI18n()
 
 const list = ref<ProductSimpleVO[]>([])
 const total = ref(0)
@@ -28,10 +28,10 @@ const searchForm = ref<ProductSearchDTO>({
 })
 
 const sortOptions = [
-  { label: 'Default', value: '' },
-  { label: 'Price Low to High', value: 'price_asc' },
-  { label: 'Price High to Low', value: 'price_desc' },
-  { label: 'Best Selling', value: 'sales_desc' },
+  { label: 'productList.defaultSort', value: '' },
+  { label: 'productList.priceAsc', value: 'price_asc' },
+  { label: 'productList.priceDesc', value: 'price_desc' },
+  { label: 'productList.salesFirst', value: 'sales_desc' },
 ]
 
 const currentSort = ref('')
@@ -71,14 +71,14 @@ function handleSearch() {
   fetchProducts()
 }
 
-function handleCategoryClick(catId: number | undefined) {
-  searchForm.value.categoryId = catId
+function handleSortChange(val: string) {
+  currentSort.value = val
   searchForm.value.pageNum = 1
   fetchProducts()
 }
 
-function handleSortChange(val: string) {
-  currentSort.value = val
+function selectCategory(id?: number) {
+  searchForm.value.categoryId = id
   searchForm.value.pageNum = 1
   fetchProducts()
 }
@@ -107,128 +107,192 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="product-list-page container">
-    <div class="filter-bar card-box mb-16">
-      <el-form :inline="true" @submit.prevent="handleSearch">
-        <el-form-item>
-          <el-input
-            v-model="searchForm.keyword"
-            placeholder="Search products..."
-            clearable
-            style="width: 260px"
-            @clear="handleSearch"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item>
-          <el-select
-            v-model="searchForm.categoryId"
-            placeholder="All Categories"
-            clearable
-            style="width: 160px"
-            @change="handleSearch"
-          >
-            <el-option
-              v-for="cat in categories"
-              :key="cat.id"
-              :label="cat.categoryName"
-              :value="cat.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-input
-            v-model.number="searchForm.minPrice"
-            placeholder="Min price"
-            type="number"
-            style="width: 110px"
+  <div class="product-page container">
+    <section class="search-banner float-hover">
+      <div class="search-inner">
+        <el-input
+          v-model="searchForm.keyword"
+          :placeholder="t('productList.searchPlaceholder')"
+          clearable
+          size="large"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+          <template #append>
+            <el-button @click="handleSearch">{{ t('common.search') }}</el-button>
+          </template>
+        </el-input>
+      </div>
+    </section>
+
+    <section class="list-layout">
+      <aside class="left-filter float-hover">
+        <h3>{{ t('productList.categoryFilter') }}</h3>
+        <el-button class="cat-btn" :type="!searchForm.categoryId ? 'primary' : 'default'" @click="selectCategory()">{{ t('productList.allCategories') }}</el-button>
+        <el-button
+          v-for="cat in categories"
+          :key="cat.id"
+          class="cat-btn"
+          :type="searchForm.categoryId === cat.id ? 'primary' : 'default'"
+          @click="selectCategory(cat.id)"
+        >
+          {{ cat.categoryName }}
+        </el-button>
+      </aside>
+
+      <main class="right-content">
+        <div class="toolbar float-hover">
+          <div class="sort-group">
+            <el-radio-group v-model="currentSort" @change="handleSortChange">
+              <el-radio-button v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+                {{ t(opt.label) }}
+              </el-radio-button>
+            </el-radio-group>
+          </div>
+          <div class="price-range">
+            <el-input v-model.number="searchForm.minPrice" type="number" :placeholder="t('productList.minPrice')" />
+            <span>-</span>
+            <el-input v-model.number="searchForm.maxPrice" type="number" :placeholder="t('productList.maxPrice')" />
+            <el-button @click="handleSearch">{{ t('common.apply') }}</el-button>
+          </div>
+          <div class="count">{{ t('productList.totalCount', { count: total }) }}</div>
+        </div>
+
+        <div v-loading="loading" class="product-grid">
+          <ProductCard v-for="item in list" :key="item.spuId" :product="item" class="float-hover" />
+        </div>
+
+        <EmptyState v-if="!loading && !list.length" :description="t('productList.empty')" />
+
+        <div v-if="total > 0" class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="searchForm.pageNum"
+            v-model:page-size="searchForm.pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 40, 60]"
+            layout="total, sizes, prev, pager, next, jumper"
+            background
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
-        </el-form-item>
-        <el-form-item>
-          <span style="color: #999"> - </span>
-        </el-form-item>
-        <el-form-item>
-          <el-input
-            v-model.number="searchForm.maxPrice"
-            placeholder="Max price"
-            type="number"
-            style="width: 110px"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">Search</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-
-    <div class="sort-bar mb-16">
-      <el-radio-group v-model="currentSort" @change="handleSortChange">
-        <el-radio-button v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </el-radio-button>
-      </el-radio-group>
-      <span class="total-count">{{ total }} products found</span>
-    </div>
-
-    <div v-loading="loading" class="product-grid">
-      <ProductCard v-for="item in list" :key="item.spuId" :product="item" />
-    </div>
-
-    <EmptyState v-if="!loading && !list.length" description="No products found" />
-
-    <div v-if="total > 0" class="pagination-wrapper mt-24">
-      <el-pagination
-        v-model:current-page="searchForm.pageNum"
-        v-model:page-size="searchForm.pageSize"
-        :total="total"
-        :page-sizes="[10, 20, 40, 60]"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @current-change="handlePageChange"
-        @size-change="handleSizeChange"
-      />
-    </div>
+        </div>
+      </main>
+    </section>
   </div>
 </template>
 
-<style lang="scss" scoped>
-@use '@/assets/styles/variables' as *;
-
-.product-list-page {
-  padding: 20px;
+<style scoped lang="scss">
+.product-page {
+  padding: 16px 0 32px;
 }
 
-.filter-bar {
-  :deep(.el-form-item) {
-    margin-bottom: 0;
+.search-banner {
+  background: linear-gradient(120deg, #ff7a00, #ff5000);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+
+  .search-inner {
+    max-width: 760px;
+
+    :deep(.el-input-group__append .el-button) {
+      background: #fff;
+      color: #ff5000;
+      border: none;
+      font-weight: 600;
+    }
   }
 }
 
-.sort-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.list-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 14px;
 }
 
-.total-count {
-  font-size: $font-size-sm;
-  color: $text-secondary;
+.left-filter,
+.toolbar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.left-filter {
+  padding: 14px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+
+  h3 {
+    margin-bottom: 4px;
+    color: var(--text-primary);
+  }
+
+  .cat-btn {
+    margin: 0;
+    justify-content: flex-start;
+  }
+}
+
+.right-content {
+  min-width: 0;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.price-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  :deep(.el-input) {
+    width: 110px;
+  }
+
+  span {
+    color: var(--text-secondary);
+  }
+}
+
+.count {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 20px;
-  min-height: 200px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-height: 220px;
 }
 
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  padding-bottom: 40px;
+  margin-top: 20px;
+}
+
+@media (max-width: 1280px) {
+  .list-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

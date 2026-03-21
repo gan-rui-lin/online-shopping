@@ -1,19 +1,19 @@
-$primary-color: #409eff;
+$primary-color: var(--primary-color);
 $success-color: #67c23a;
 $warning-color: #e6a23c;
 $danger-color: #f56c6c;
 $info-color: #909399;
 
-$text-primary: #303133;
-$text-regular: #606266;
-$text-secondary: #909399;
-$text-placeholder: #c0c4cc;
+$text-primary: var(--text-primary);
+$text-regular: var(--text-regular);
+$text-secondary: var(--text-secondary);
+$text-placeholder: var(--text-placeholder);
 
-$border-color: #dcdfe6;
-$border-lighter: #e4e7ed;
+$border-color: var(--border-color);
+$border-lighter: var(--border-color);
 
-$bg-color: #f5f7fa;
-$bg-white: #ffffff;
+$bg-color: var(--bg-color);
+$bg-white: var(--bg-card);
 
 $header-height: 60px;
 $sidebar-width: 220px;
@@ -26,8 +26,8 @@ $font-size-xl: 20px;
 $border-radius: 4px;
 $border-radius-lg: 8px;
 
-$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-$shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-$shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+$shadow-sm: var(--shadow-sm);
+$shadow-md: var(--shadow-md);
+$shadow-lg: var(--shadow-md);
 
 $content-max-width: 1200px;

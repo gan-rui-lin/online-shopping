@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { t } = useI18n()
 const nickname = computed(() => userStore.nickname)
 
 const menuItems = [
-  { path: '/merchant', label: 'Dashboard', icon: 'DataLine' },
-  { path: '/merchant/shop', label: 'Shop Info', icon: 'Shop' },
-  { path: '/merchant/products', label: 'Products', icon: 'Goods' },
-  { path: '/merchant/orders', label: 'Orders', icon: 'Document' },
+  { path: '/merchant', label: 'merchantLayout.dashboard', icon: 'DataLine' },
+  { path: '/merchant/shop', label: 'merchantLayout.shopInfo', icon: 'Shop' },
+  { path: '/merchant/products', label: 'common.products', icon: 'Goods' },
+  { path: '/merchant/orders', label: 'publicLayout.orders', icon: 'Document' },
 ]
 
 function goHome() {
@@ -30,12 +32,12 @@ async function handleLogout() {
     <aside class="sidebar">
       <div class="sidebar-header" @click="goHome">
         <el-icon :size="20"><Shop /></el-icon>
-        <span>Merchant Center</span>
+        <span>{{ t('merchantLayout.merchantCenter') }}</span>
       </div>
       <el-menu :default-active="route.path" router class="sidebar-menu">
         <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
-          <span>{{ item.label }}</span>
+          <span>{{ t(item.label) }}</span>
         </el-menu-item>
       </el-menu>
     </aside>
@@ -44,12 +46,12 @@ async function handleLogout() {
       <el-header class="header">
         <div class="header-inner">
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/merchant' }">Merchant</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/merchant' }">{{ t('merchantLayout.merchant') }}</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
           <div class="header-right">
             <router-link to="/" class="back-link">
-              <el-icon><HomeFilled /></el-icon> Store
+              <el-icon><HomeFilled /></el-icon> {{ t('merchantLayout.store') }}
             </router-link>
             <el-dropdown @command="(cmd: string) => cmd === 'logout' ? handleLogout() : null" trigger="click">
               <span class="user-dropdown">
@@ -58,7 +60,7 @@ async function handleLogout() {
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="logout">Logout</el-dropdown-item>
+                  <el-dropdown-item command="logout">{{ t('common.logout') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
