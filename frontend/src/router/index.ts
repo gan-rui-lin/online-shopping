@@ -85,6 +85,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/buyer/MerchantApplyView.vue'),
         meta: { title: 'Apply as Merchant' },
       },
+      {
+        path: 'intelligence',
+        name: 'BuyerIntelligenceHub',
+        component: () => import('@/views/buyer/IntelligenceHubView.vue'),
+        meta: { title: 'Intelligence Hub' },
+      },
     ],
   },
   {
