@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { createReview } from '@/api/review'
 import type { ReviewCreateDTO } from '@/types/review'
@@ -9,6 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const { t } = useI18n()
 
 const orderItemId = Number(route.params.orderItemId)
 
@@ -23,7 +25,7 @@ const form = reactive<ReviewCreateDTO>({
 const newImageUrl = ref('')
 
 const rules: FormRules = {
-  score: [{ required: true, message: 'Please rate', trigger: 'change' }],
+  score: [{ required: true, message: t('buyer.rating'), trigger: 'change' }],
 }
 
 function addImage() {
@@ -47,7 +49,7 @@ async function handleSubmit() {
       content: form.content || undefined,
       imageUrls: form.imageUrls?.length ? form.imageUrls : undefined,
     })
-    ElMessage.success('Review submitted')
+    ElMessage.success(t('buyer.reviewSubmitted'))
     router.back()
   } catch { /* handled */ } finally {
     loading.value = false
@@ -59,22 +61,22 @@ async function handleSubmit() {
   <div class="review-create-page">
     <div class="page-header mb-24">
       <el-button text @click="router.back()">
-        <el-icon><ArrowLeft /></el-icon> Back
+        <el-icon><ArrowLeft /></el-icon> {{ t('buyer.back') }}
       </el-button>
-      <h2 class="page-title">Write a Review</h2>
+      <h2 class="page-title">{{ t('buyer.writeReviewTitle') }}</h2>
     </div>
 
     <div class="card-box">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px" style="max-width: 600px">
-        <el-form-item label="Rating" prop="score">
+        <el-form-item :label="t('buyer.rating')" prop="score">
           <el-rate v-model="form.score" show-text :texts="['Terrible', 'Bad', 'OK', 'Good', 'Excellent']" />
         </el-form-item>
 
-        <el-form-item label="Review Content">
-          <el-input v-model="form.content" type="textarea" :rows="4" placeholder="Share your experience..." />
+        <el-form-item :label="t('buyer.reviewContent')">
+          <el-input v-model="form.content" type="textarea" :rows="4" :placeholder="t('buyer.reviewContent')" />
         </el-form-item>
 
-        <el-form-item label="Images">
+        <el-form-item :label="t('buyer.images')">
           <div class="image-list">
             <div v-for="(url, idx) in form.imageUrls" :key="idx" class="image-item">
               <el-image :src="url" fit="cover" class="preview-img" />
@@ -84,17 +86,17 @@ async function handleSubmit() {
             </div>
           </div>
           <div class="add-image-row">
-            <el-input v-model="newImageUrl" placeholder="Paste image URL" @keyup.enter="addImage" />
-            <el-button @click="addImage">Add</el-button>
+            <el-input v-model="newImageUrl" placeholder="Image URL" @keyup.enter="addImage" />
+            <el-button @click="addImage">{{ t('common.create') }}</el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="Anonymous">
+        <el-form-item :label="t('buyer.anonymous')">
           <el-switch v-model="form.anonymousFlag" :active-value="1" :inactive-value="0" />
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="handleSubmit">Submit Review</el-button>
+          <el-button type="primary" :loading="loading" @click="handleSubmit">{{ t('buyer.submitReview') }}</el-button>
         </el-form-item>
       </el-form>
     </div>

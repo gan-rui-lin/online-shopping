@@ -1,25 +1,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrderDetail, payOrder, cancelOrder, confirmReceive, applyRefund } from '@/api/order'
 import type { OrderDetailVO } from '@/types/order'
-import { OrderStatus, OrderStatusMap, PayStatusMap } from '@/constants/enums'
+import { OrderStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
 import { formatDate, formatSpec } from '@/utils/format'
+import { getOrderStatusLabel, getPayStatusLabel } from '@/utils/i18nStatus'
 
 const route = useRoute()
 const router = useRouter()
 const orderNo = computed(() => route.params.orderNo as string)
 const order = ref<OrderDetailVO | null>(null)
 const loading = ref(true)
+const { t } = useI18n()
 
 async function fetchOrder() {
   loading.value = true
   try {
     order.value = await getOrderDetail(orderNo.value)
   } catch {
-    ElMessage.error('Failed to load order')
+    ElMessage.error(t('common.requestFailed'))
   } finally {
     loading.value = false
   }
@@ -28,43 +31,43 @@ async function fetchOrder() {
 async function handlePay() {
   try {
     await payOrder(orderNo.value)
-    ElMessage.success('Payment successful')
+    ElMessage.success(t('buyer.paymentSuccess'))
     fetchOrder()
   } catch { /* handled */ }
 }
 
 async function handleCancel() {
-  const { value } = await ElMessageBox.prompt('Cancel reason (optional)', 'Cancel Order', {
-    confirmButtonText: 'Confirm',
-    cancelButtonText: 'Back',
+  const { value } = await ElMessageBox.prompt(t('buyer.cancelReasonOptional'), t('buyer.cancelOrder'), {
+    confirmButtonText: t('buyer.confirm'),
+    cancelButtonText: t('buyer.back'),
   }).catch(() => ({ value: null }))
   if (value === null) return
   try {
     await cancelOrder(orderNo.value, value || undefined)
-    ElMessage.success('Order cancelled')
+    ElMessage.success(t('buyer.orderCancelled'))
     fetchOrder()
   } catch { /* handled */ }
 }
 
 async function handleConfirmReceive() {
-  await ElMessageBox.confirm('Confirm you have received the goods?', 'Confirm')
+  await ElMessageBox.confirm(t('buyer.confirmReceive'), t('buyer.confirm'))
   try {
     await confirmReceive(orderNo.value)
-    ElMessage.success('Receipt confirmed')
+    ElMessage.success(t('buyer.receiptConfirmed'))
     fetchOrder()
   } catch { /* handled */ }
 }
 
 async function handleRefund() {
-  const { value } = await ElMessageBox.prompt('Refund reason', 'Apply Refund', {
-    confirmButtonText: 'Submit',
-    cancelButtonText: 'Cancel',
-    inputValidator: (v) => !!v || 'Reason is required',
+  const { value } = await ElMessageBox.prompt(t('buyer.refundReason'), t('buyer.applyRefundTitle'), {
+    confirmButtonText: t('buyer.submitOrder'),
+    cancelButtonText: t('buyer.cancel'),
+    inputValidator: (v) => !!v || t('buyer.reasonRequired'),
   }).catch(() => ({ value: null }))
   if (value === null) return
   try {
     await applyRefund(orderNo.value, { reason: value })
-    ElMessage.success('Refund applied')
+    ElMessage.success(t('buyer.refundApplied'))
     fetchOrder()
   } catch { /* handled */ }
 }
@@ -94,46 +97,46 @@ onMounted(fetchOrder)
     <template v-if="order">
       <div class="page-header mb-24">
         <el-button text @click="router.push('/buyer/orders')">
-          <el-icon><ArrowLeft /></el-icon> Back to Orders
+          <el-icon><ArrowLeft /></el-icon> {{ t('buyer.backToOrders') }}
         </el-button>
-        <h2 class="page-title">Order Detail</h2>
+        <h2 class="page-title">{{ t('buyer.orderDetail') }}</h2>
       </div>
 
       <div class="status-bar card-box mb-16">
         <el-tag :type="getStatusType(order.orderStatus)" size="large">
-          {{ OrderStatusMap[order.orderStatus] }}
+          {{ getOrderStatusLabel(t, order.orderStatus) }}
         </el-tag>
         <div class="status-actions">
-          <el-button v-if="order.orderStatus === OrderStatus.UNPAID" type="primary" @click="handlePay">Pay Now</el-button>
-          <el-button v-if="order.orderStatus === OrderStatus.UNPAID" @click="handleCancel">Cancel</el-button>
-          <el-button v-if="order.orderStatus === OrderStatus.TO_RECEIVE" type="primary" @click="handleConfirmReceive">Confirm Receive</el-button>
-          <el-button v-if="order.orderStatus === OrderStatus.TO_SHIP || order.orderStatus === OrderStatus.TO_RECEIVE" type="warning" @click="handleRefund">Apply Refund</el-button>
+          <el-button v-if="order.orderStatus === OrderStatus.UNPAID" type="primary" @click="handlePay">{{ t('buyer.payNow') }}</el-button>
+          <el-button v-if="order.orderStatus === OrderStatus.UNPAID" @click="handleCancel">{{ t('buyer.cancel') }}</el-button>
+          <el-button v-if="order.orderStatus === OrderStatus.TO_RECEIVE" type="primary" @click="handleConfirmReceive">{{ t('buyer.confirmReceive') }}</el-button>
+          <el-button v-if="order.orderStatus === OrderStatus.TO_SHIP || order.orderStatus === OrderStatus.TO_RECEIVE" type="warning" @click="handleRefund">{{ t('buyer.applyRefund') }}</el-button>
         </div>
       </div>
 
       <div class="info-section card-box mb-16">
-        <h3 class="section-title">Order Info</h3>
+        <h3 class="section-title">{{ t('buyer.orderInfo') }}</h3>
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="Order No">{{ order.orderNo }}</el-descriptions-item>
-          <el-descriptions-item label="Payment Status">{{ PayStatusMap[order.payStatus] }}</el-descriptions-item>
-          <el-descriptions-item label="Created">{{ formatDate(order.createTime) }}</el-descriptions-item>
-          <el-descriptions-item label="Paid">{{ formatDate(order.payTime) || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Shipped">{{ formatDate(order.deliveryTime) || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Completed">{{ formatDate(order.finishTime) || '-' }}</el-descriptions-item>
-          <el-descriptions-item v-if="order.cancelTime" label="Cancelled">{{ formatDate(order.cancelTime) }}</el-descriptions-item>
-          <el-descriptions-item v-if="order.cancelReason" label="Cancel Reason">{{ order.cancelReason }}</el-descriptions-item>
-          <el-descriptions-item v-if="order.remark" label="Remark">{{ order.remark }}</el-descriptions-item>
+          <el-descriptions-item :label="t('buyer.order')">{{ order.orderNo }}</el-descriptions-item>
+          <el-descriptions-item :label="t('buyer.paymentStatus')">{{ getPayStatusLabel(t, order.payStatus) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('buyer.created')">{{ formatDate(order.createTime) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('buyer.paid')">{{ formatDate(order.payTime) || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('buyer.shipped')">{{ formatDate(order.deliveryTime) || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('buyer.finished')">{{ formatDate(order.finishTime) || '-' }}</el-descriptions-item>
+          <el-descriptions-item v-if="order.cancelTime" :label="t('buyer.cancelled')">{{ formatDate(order.cancelTime) }}</el-descriptions-item>
+          <el-descriptions-item v-if="order.cancelReason" :label="t('buyer.cancelReason')">{{ order.cancelReason }}</el-descriptions-item>
+          <el-descriptions-item v-if="order.remark" :label="t('buyer.remark')">{{ order.remark }}</el-descriptions-item>
         </el-descriptions>
       </div>
 
       <div class="info-section card-box mb-16">
-        <h3 class="section-title">Shipping Address</h3>
+        <h3 class="section-title">{{ t('buyer.shippingAddressTitle') }}</h3>
         <p>{{ order.receiverName }} {{ order.receiverPhone }}</p>
         <p class="address-text">{{ order.receiverAddress }}</p>
       </div>
 
       <div class="info-section card-box mb-16">
-        <h3 class="section-title">Order Items</h3>
+        <h3 class="section-title">{{ t('buyer.orderItems') }}</h3>
         <div v-for="item in order.itemList" :key="item.skuId" class="detail-item">
           <el-image :src="item.productImage" fit="cover" class="item-img">
             <template #error><div class="img-fallback"><el-icon><Picture /></el-icon></div></template>
@@ -151,26 +154,26 @@ onMounted(fetchOrder)
             size="small"
             @click="goReview(item.skuId)"
           >
-            Write Review
+            {{ t('buyer.writeReview') }}
           </el-button>
         </div>
       </div>
 
       <div class="price-summary card-box">
         <div class="price-row">
-          <span>Subtotal</span>
+          <span>{{ t('buyer.subtotal') }}</span>
           <PriceDisplay :price="order.totalAmount" />
         </div>
         <div class="price-row">
-          <span>Discount</span>
+          <span>{{ t('buyer.discount') }}</span>
           <span>-{{ order.discountAmount?.toFixed(2) || '0.00' }}</span>
         </div>
         <div class="price-row">
-          <span>Shipping</span>
+          <span>{{ t('buyer.shippingFee') }}</span>
           <PriceDisplay :price="order.freightAmount" />
         </div>
         <div class="price-row total">
-          <span>Total</span>
+          <span>{{ t('buyer.total') }}</span>
           <PriceDisplay :price="order.payAmount" size="large" />
         </div>
       </div>

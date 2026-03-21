@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getShopStatistics } from '@/api/merchant'
 import type { ShopStatisticVO } from '@/types/merchant'
 import { formatPrice } from '@/utils/format'
 
 const stats = ref<ShopStatisticVO | null>(null)
 const loading = ref(true)
+const { t } = useI18n()
 
 onMounted(async () => {
   try {
@@ -20,7 +22,7 @@ onMounted(async () => {
 
 <template>
   <div v-loading="loading" class="merchant-dashboard">
-    <h2 class="page-title mb-24">Merchant Dashboard</h2>
+    <h2 class="page-title mb-24">{{ t('merchant.dashboard') }}</h2>
 
     <template v-if="stats">
       <el-row :gutter="20" class="mb-24">
@@ -31,7 +33,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ stats.totalProducts }}</span>
-              <span class="stat-label">Total Products</span>
+              <span class="stat-label">{{ t('merchant.totalProducts') }}</span>
             </div>
           </div>
         </el-col>
@@ -42,7 +44,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ stats.onShelfProducts }}</span>
-              <span class="stat-label">On Shelf</span>
+              <span class="stat-label">{{ t('merchant.onShelf') }}</span>
             </div>
           </div>
         </el-col>
@@ -53,7 +55,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ stats.totalOrders }}</span>
-              <span class="stat-label">Total Orders</span>
+              <span class="stat-label">{{ t('merchant.totalOrders') }}</span>
             </div>
           </div>
         </el-col>
@@ -64,7 +66,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ stats.pendingOrders }}</span>
-              <span class="stat-label">Pending Orders</span>
+              <span class="stat-label">{{ t('merchant.pendingOrders') }}</span>
             </div>
           </div>
         </el-col>
@@ -78,7 +80,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ formatPrice(stats.totalRevenue) }}</span>
-              <span class="stat-label">Total Revenue</span>
+              <span class="stat-label">{{ t('merchant.totalRevenue') }}</span>
             </div>
           </div>
         </el-col>
@@ -89,7 +91,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ stats.score?.toFixed(1) || '-' }}</span>
-              <span class="stat-label">Shop Rating</span>
+              <span class="stat-label">{{ t('merchant.shopRating') }}</span>
             </div>
           </div>
         </el-col>
