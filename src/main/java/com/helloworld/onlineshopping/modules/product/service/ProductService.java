@@ -161,7 +161,13 @@ public class ProductService {
         EsProductService esProductService = esProductServiceProvider.getIfAvailable();
         if (esProductService != null) {
             try {
-                return esProductService.searchProducts(dto);
+                PageResult<ProductSimpleVO> esResult = esProductService.searchProducts(dto);
+                if (esResult != null && esResult.getTotal() > 0) {
+                    return esResult;
+                }
+
+                log.warn("ES search returned empty, fallback to DB search, keyword={}, categoryId={}, pageNum={}, pageSize={}",
+                        dto.getKeyword(), dto.getCategoryId(), dto.getPageNum(), dto.getPageSize());
             } catch (Exception ex) {
                 log.warn("ES search failed, fallback to DB search, keyword={}", dto.getKeyword(), ex);
             }
