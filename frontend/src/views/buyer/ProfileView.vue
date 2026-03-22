@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { updateProfile, changePassword } from '@/api/user'
@@ -11,6 +12,7 @@ const passwordRef = ref<FormInstance>()
 const profileLoading = ref(false)
 const passwordLoading = ref(false)
 const activeTab = ref('profile')
+const { t } = useI18n()
 
 const profileForm = reactive<UpdateProfileDTO>({
   nickname: '',
@@ -26,20 +28,20 @@ const passwordForm = reactive<ChangePasswordDTO & { confirmPassword: string }>({
 })
 
 const profileRules: FormRules = {
-  nickname: [{ max: 64, message: 'Max 64 characters', trigger: 'blur' }],
+  nickname: [{ max: 64, message: t('buyer.max64'), trigger: 'blur' }],
 }
 
 const passwordRules: FormRules = {
-  oldPassword: [{ required: true, message: 'Required', trigger: 'blur' }],
+  oldPassword: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
   newPassword: [
-    { required: true, message: 'Required', trigger: 'blur' },
-    { min: 6, max: 64, message: '6-64 characters', trigger: 'blur' },
+    { required: true, message: t('buyer.required'), trigger: 'blur' },
+    { min: 6, max: 64, message: t('buyer.len6to64'), trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: 'Required', trigger: 'blur' },
+    { required: true, message: t('buyer.required'), trigger: 'blur' },
     {
       validator: (_r: any, v: string, cb: any) => {
-        v !== passwordForm.newPassword ? cb(new Error('Passwords do not match')) : cb()
+        v !== passwordForm.newPassword ? cb(new Error(t('buyer.passwordMismatch'))) : cb()
       },
       trigger: 'blur',
     },
@@ -53,7 +55,7 @@ async function handleUpdateProfile() {
   try {
     await updateProfile(profileForm)
     await userStore.fetchUserInfo()
-    ElMessage.success('Profile updated')
+    ElMessage.success(t('buyer.profileUpdated'))
   } catch { /* handled */ } finally {
     profileLoading.value = false
   }
@@ -65,7 +67,7 @@ async function handleChangePassword() {
   passwordLoading.value = true
   try {
     await changePassword({ oldPassword: passwordForm.oldPassword, newPassword: passwordForm.newPassword })
-    ElMessage.success('Password changed successfully')
+    ElMessage.success(t('buyer.passwordChanged'))
     passwordForm.oldPassword = ''
     passwordForm.newPassword = ''
     passwordForm.confirmPassword = ''
@@ -90,48 +92,48 @@ onMounted(async () => {
 
 <template>
   <div class="profile-page">
-    <h2 class="page-title mb-24">My Profile</h2>
+    <h2 class="page-title mb-24">{{ t('buyer.myProfile') }}</h2>
 
     <el-tabs v-model="activeTab">
-      <el-tab-pane label="Profile Info" name="profile">
+      <el-tab-pane :label="t('buyer.profileInfo')" name="profile">
         <div class="card-box">
           <el-form ref="profileRef" :model="profileForm" :rules="profileRules" label-width="120px" style="max-width: 500px">
-            <el-form-item label="Username">
+            <el-form-item :label="t('buyer.username')">
               <el-input :model-value="userStore.userInfo?.username" disabled />
             </el-form-item>
-            <el-form-item label="Nickname" prop="nickname">
-              <el-input v-model="profileForm.nickname" placeholder="Enter nickname" />
+            <el-form-item :label="t('buyer.nickname')" prop="nickname">
+              <el-input v-model="profileForm.nickname" :placeholder="t('buyer.nickname')" />
             </el-form-item>
-            <el-form-item label="Email" prop="email">
-              <el-input v-model="profileForm.email" placeholder="Enter email" />
+            <el-form-item :label="t('buyer.email')" prop="email">
+              <el-input v-model="profileForm.email" :placeholder="t('buyer.email')" />
             </el-form-item>
-            <el-form-item label="Phone" prop="phone">
-              <el-input v-model="profileForm.phone" placeholder="Enter phone" />
+            <el-form-item :label="t('buyer.phone')" prop="phone">
+              <el-input v-model="profileForm.phone" :placeholder="t('buyer.phone')" />
             </el-form-item>
-            <el-form-item label="Avatar URL" prop="avatarUrl">
-              <el-input v-model="profileForm.avatarUrl" placeholder="Enter avatar URL" />
+            <el-form-item :label="t('buyer.avatarUrl')" prop="avatarUrl">
+              <el-input v-model="profileForm.avatarUrl" :placeholder="t('buyer.avatarUrl')" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" :loading="profileLoading" @click="handleUpdateProfile">Save Changes</el-button>
+              <el-button type="primary" :loading="profileLoading" @click="handleUpdateProfile">{{ t('buyer.saveChanges') }}</el-button>
             </el-form-item>
           </el-form>
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="Change Password" name="password">
+      <el-tab-pane :label="t('buyer.changePassword')" name="password">
         <div class="card-box">
           <el-form ref="passwordRef" :model="passwordForm" :rules="passwordRules" label-width="160px" style="max-width: 500px">
-            <el-form-item label="Current Password" prop="oldPassword">
+            <el-form-item :label="t('buyer.currentPassword')" prop="oldPassword">
               <el-input v-model="passwordForm.oldPassword" type="password" show-password />
             </el-form-item>
-            <el-form-item label="New Password" prop="newPassword">
+            <el-form-item :label="t('buyer.newPassword')" prop="newPassword">
               <el-input v-model="passwordForm.newPassword" type="password" show-password />
             </el-form-item>
-            <el-form-item label="Confirm Password" prop="confirmPassword">
+            <el-form-item :label="t('buyer.confirmPassword')" prop="confirmPassword">
               <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" :loading="passwordLoading" @click="handleChangePassword">Change Password</el-button>
+              <el-button type="primary" :loading="passwordLoading" @click="handleChangePassword">{{ t('buyer.changePasswordBtn') }}</el-button>
             </el-form-item>
           </el-form>
         </div>

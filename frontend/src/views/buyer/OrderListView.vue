@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrderList, cancelOrder, payOrder, confirmReceive } from '@/api/order'
 import type { OrderListVO, OrderQueryDTO } from '@/types/order'
-import { OrderStatus, OrderStatusMap } from '@/constants/enums'
+import { OrderStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
 import { formatDate } from '@/utils/format'
+import { getOrderStatusLabel } from '@/utils/i18nStatus'
 
 const router = useRouter()
 const orders = ref<OrderListVO[]>([])
 const total = ref(0)
 const loading = ref(false)
+const { t } = useI18n()
 
 const query = ref<OrderQueryDTO>({
   pageNum: 1,
@@ -20,11 +23,11 @@ const query = ref<OrderQueryDTO>({
 })
 
 const statusTabs = [
-  { label: 'All', value: undefined },
-  { label: 'Unpaid', value: OrderStatus.UNPAID },
-  { label: 'To Ship', value: OrderStatus.TO_SHIP },
-  { label: 'To Receive', value: OrderStatus.TO_RECEIVE },
-  { label: 'Completed', value: OrderStatus.COMPLETED },
+  { label: 'buyer.all', value: undefined },
+  { label: 'buyer.unpaid', value: OrderStatus.UNPAID },
+  { label: 'buyer.toShip', value: OrderStatus.TO_SHIP },
+  { label: 'buyer.toReceive', value: OrderStatus.TO_RECEIVE },
+  { label: 'buyer.completed', value: OrderStatus.COMPLETED },
 ]
 
 const activeTab = ref<string>('all')
@@ -62,30 +65,30 @@ function goDetail(orderNo: string) {
 async function handlePay(orderNo: string) {
   try {
     await payOrder(orderNo)
-    ElMessage.success('Payment successful')
+    ElMessage.success(t('buyer.paymentSuccess'))
     fetchOrders()
   } catch { /* handled */ }
 }
 
 async function handleCancel(orderNo: string) {
-  const { value } = await ElMessageBox.prompt('Cancel reason (optional)', 'Cancel Order', {
-    confirmButtonText: 'Confirm',
-    cancelButtonText: 'Back',
-    inputPlaceholder: 'Enter reason...',
+  const { value } = await ElMessageBox.prompt(t('buyer.cancelReasonOptional'), t('buyer.cancelOrder'), {
+    confirmButtonText: t('buyer.confirm'),
+    cancelButtonText: t('buyer.back'),
+    inputPlaceholder: t('buyer.enterReason'),
   }).catch(() => ({ value: null }))
   if (value === null) return
   try {
     await cancelOrder(orderNo, value || undefined)
-    ElMessage.success('Order cancelled')
+    ElMessage.success(t('buyer.orderCancelled'))
     fetchOrders()
   } catch { /* handled */ }
 }
 
 async function handleConfirmReceive(orderNo: string) {
-  await ElMessageBox.confirm('Confirm you have received the goods?', 'Confirm')
+  await ElMessageBox.confirm(t('buyer.confirmReceive'), t('buyer.confirm'))
   try {
     await confirmReceive(orderNo)
-    ElMessage.success('Receipt confirmed')
+    ElMessage.success(t('buyer.receiptConfirmed'))
     fetchOrders()
   } catch { /* handled */ }
 }
@@ -108,13 +111,13 @@ onMounted(fetchOrders)
 
 <template>
   <div class="order-list-page">
-    <h2 class="page-title mb-24">My Orders</h2>
+    <h2 class="page-title mb-24">{{ t('buyer.myOrders') }}</h2>
 
     <el-tabs v-model="activeTab" @tab-change="handleTabChange">
       <el-tab-pane
         v-for="tab in statusTabs"
         :key="tab.value === undefined ? 'all' : tab.value"
-        :label="tab.label"
+        :label="t(tab.label)"
         :name="tab.value === undefined ? 'all' : String(tab.value)"
       />
     </el-tabs>
@@ -122,10 +125,10 @@ onMounted(fetchOrders)
     <div v-loading="loading">
       <div v-for="order in orders" :key="order.orderNo" class="order-card card-box mb-16">
         <div class="order-header">
-          <span class="order-no">Order: {{ order.orderNo }}</span>
+          <span class="order-no">{{ t('buyer.order') }}: {{ order.orderNo }}</span>
           <span class="order-time">{{ formatDate(order.createTime) }}</span>
           <el-tag :type="getStatusType(order.orderStatus)" size="small">
-            {{ OrderStatusMap[order.orderStatus] }}
+            {{ getOrderStatusLabel(t, order.orderStatus) }}
           </el-tag>
         </div>
 
@@ -145,19 +148,19 @@ onMounted(fetchOrders)
 
         <div class="order-footer">
           <div class="order-total">
-            <span>Total: </span>
+            <span>{{ t('buyer.total') }}: </span>
             <PriceDisplay :price="order.payAmount" />
           </div>
           <div class="order-actions">
-            <el-button size="small" @click="goDetail(order.orderNo)">Detail</el-button>
-            <el-button v-if="order.orderStatus === OrderStatus.UNPAID" type="primary" size="small" @click="handlePay(order.orderNo)">Pay Now</el-button>
-            <el-button v-if="order.orderStatus === OrderStatus.UNPAID" size="small" @click="handleCancel(order.orderNo)">Cancel</el-button>
-            <el-button v-if="order.orderStatus === OrderStatus.TO_RECEIVE" type="primary" size="small" @click="handleConfirmReceive(order.orderNo)">Confirm Receive</el-button>
+            <el-button size="small" @click="goDetail(order.orderNo)">{{ t('buyer.detail') }}</el-button>
+            <el-button v-if="order.orderStatus === OrderStatus.UNPAID" type="primary" size="small" @click="handlePay(order.orderNo)">{{ t('buyer.payNow') }}</el-button>
+            <el-button v-if="order.orderStatus === OrderStatus.UNPAID" size="small" @click="handleCancel(order.orderNo)">{{ t('buyer.cancel') }}</el-button>
+            <el-button v-if="order.orderStatus === OrderStatus.TO_RECEIVE" type="primary" size="small" @click="handleConfirmReceive(order.orderNo)">{{ t('buyer.confirmReceive') }}</el-button>
           </div>
         </div>
       </div>
 
-      <el-empty v-if="!loading && !orders.length" description="No orders found" />
+      <el-empty v-if="!loading && !orders.length" :description="t('buyer.noOrders')" />
 
       <el-pagination
         v-if="total > 0"

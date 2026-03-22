@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCartStore } from '@/stores/cart'
 import { submitOrder } from '@/api/order'
@@ -16,6 +17,7 @@ const selectedAddressId = ref<number | undefined>()
 const submitting = ref(false)
 const showCheckout = ref(false)
 const orderRemark = ref('')
+const { t } = useI18n()
 
 const checkedItems = computed(() => cartStore.items.filter((i) => i.checked === 1))
 
@@ -32,16 +34,16 @@ async function handleQuantityChange(skuId: number, quantity: number) {
 }
 
 async function handleRemove(skuId: number) {
-  await ElMessageBox.confirm('Remove this item from cart?', 'Confirm')
+  await ElMessageBox.confirm(t('buyer.removeItemConfirm'), t('buyer.confirm'))
   try {
     await cartStore.removeItem(skuId)
-    ElMessage.success('Item removed')
+    ElMessage.success(t('buyer.removed'))
   } catch { /* handled */ }
 }
 
 async function openCheckout() {
   if (!checkedItems.value.length) {
-    ElMessage.warning('Please select items to checkout')
+    ElMessage.warning(t('buyer.selectItemsWarning'))
     return
   }
   try {
@@ -56,7 +58,7 @@ async function openCheckout() {
 
 async function handleSubmitOrder() {
   if (!selectedAddressId.value) {
-    ElMessage.warning('Please select a shipping address')
+    ElMessage.warning(t('buyer.selectAddressWarning'))
     return
   }
   submitting.value = true
@@ -66,7 +68,7 @@ async function handleSubmitOrder() {
       remark: orderRemark.value || undefined,
       cartSkuIds: checkedItems.value.map((i) => i.skuId),
     })
-    ElMessage.success('Order submitted successfully')
+    ElMessage.success(t('buyer.orderSubmitted'))
     showCheckout.value = false
     await cartStore.fetchCart()
     router.push(`/buyer/orders/${result.orderNo}`)
@@ -82,17 +84,17 @@ onMounted(() => {
 
 <template>
   <div class="cart-page">
-    <h2 class="page-title mb-24">Shopping Cart</h2>
+    <h2 class="page-title mb-24">{{ t('buyer.shoppingCart') }}</h2>
 
     <div v-loading="cartStore.loading">
       <div v-if="cartStore.items.length" class="cart-list">
         <div class="cart-header">
-          <span class="col-check">Select</span>
-          <span class="col-product">Product</span>
-          <span class="col-price">Price</span>
-          <span class="col-quantity">Quantity</span>
-          <span class="col-total">Total</span>
-          <span class="col-action">Action</span>
+          <span class="col-check">{{ t('buyer.select') }}</span>
+          <span class="col-product">{{ t('intelligence.product') }}</span>
+          <span class="col-price">{{ t('intelligence.price') }}</span>
+          <span class="col-quantity">{{ t('buyer.quantity') }}</span>
+          <span class="col-total">{{ t('buyer.total') }}</span>
+          <span class="col-action">{{ t('buyer.action') }}</span>
         </div>
 
         <div v-for="item in cartStore.items" :key="item.skuId" class="cart-item card-box mb-16">
@@ -112,7 +114,7 @@ onMounted(() => {
             <div class="item-info">
               <router-link :to="`/products/${item.spuId}`" class="item-name">{{ item.spuName }}</router-link>
               <span class="item-spec">{{ item.skuName || formatSpec(item.specJson) }}</span>
-              <el-tag v-if="!item.available" type="danger" size="small">Unavailable</el-tag>
+              <el-tag v-if="!item.available" type="danger" size="small">{{ t('buyer.unavailable') }}</el-tag>
             </div>
           </div>
           <div class="col-price">
@@ -125,62 +127,62 @@ onMounted(() => {
             <PriceDisplay :price="item.price * item.quantity" />
           </div>
           <div class="col-action">
-            <el-button text type="danger" @click="handleRemove(item.skuId)">Remove</el-button>
+            <el-button text type="danger" @click="handleRemove(item.skuId)">{{ t('merchant.delete') }}</el-button>
           </div>
         </div>
       </div>
 
-      <el-empty v-else description="Your cart is empty">
+      <el-empty v-else :description="t('buyer.cartEmpty')">
         <router-link to="/products">
-          <el-button type="primary">Go Shopping</el-button>
+          <el-button type="primary">{{ t('buyer.goShopping') }}</el-button>
         </router-link>
       </el-empty>
     </div>
 
     <div v-if="cartStore.items.length" class="cart-footer card-box mt-24">
       <div class="footer-left">
-        <span>Selected: <strong>{{ cartStore.checkedCount }}</strong> items</span>
+        <span>{{ t('buyer.selectedItems', { count: cartStore.checkedCount }) }}</span>
       </div>
       <div class="footer-right">
-        <span class="total-label">Total:</span>
+        <span class="total-label">{{ t('buyer.total') }}:</span>
         <PriceDisplay :price="cartStore.checkedAmount" size="large" />
         <el-button type="primary" size="large" :disabled="!checkedItems.length" @click="openCheckout">
-          Checkout
+          {{ t('buyer.checkout') }}
         </el-button>
       </div>
     </div>
 
-    <el-dialog v-model="showCheckout" title="Confirm Order" width="600px">
+    <el-dialog v-model="showCheckout" :title="t('buyer.confirmOrder')" width="600px">
       <div class="checkout-section">
-        <h4 class="mb-16">Shipping Address</h4>
+        <h4 class="mb-16">{{ t('buyer.shippingAddress') }}</h4>
         <el-radio-group v-model="selectedAddressId" class="address-radio-group">
           <el-radio v-for="addr in addresses" :key="addr.id" :value="addr.id" class="address-radio">
             <span class="addr-name">{{ addr.receiverName }} {{ addr.receiverPhone }}</span>
             <span class="addr-detail">{{ addr.fullAddress || `${addr.province} ${addr.city} ${addr.district} ${addr.detailAddress}` }}</span>
-            <el-tag v-if="addr.isDefault === 1" size="small">Default</el-tag>
+            <el-tag v-if="addr.isDefault === 1" size="small">{{ t('buyer.setDefault') }}</el-tag>
           </el-radio>
         </el-radio-group>
-        <el-empty v-if="!addresses.length" description="No address, please add one first">
-          <el-button type="primary" @click="router.push('/buyer/addresses')">Add Address</el-button>
+        <el-empty v-if="!addresses.length" :description="t('buyer.noAddressFirst')">
+          <el-button type="primary" @click="router.push('/buyer/addresses')">{{ t('buyer.addAddressBtn') }}</el-button>
         </el-empty>
 
-        <h4 class="mt-24 mb-16">Order Items</h4>
+        <h4 class="mt-24 mb-16">{{ t('buyer.orderItems') }}</h4>
         <div v-for="item in checkedItems" :key="item.skuId" class="checkout-item">
           <span>{{ item.spuName }} - {{ item.skuName || formatSpec(item.specJson) }}</span>
           <span>x{{ item.quantity }}</span>
           <PriceDisplay :price="item.price * item.quantity" size="small" />
         </div>
 
-        <el-form-item label="Remark" class="mt-16">
-          <el-input v-model="orderRemark" placeholder="Optional order remark" />
+        <el-form-item :label="t('buyer.remark')" class="mt-16">
+          <el-input v-model="orderRemark" :placeholder="t('buyer.optionalRemark')" />
         </el-form-item>
       </div>
       <template #footer>
         <div class="checkout-footer">
-          <span>Total: </span>
+          <span>{{ t('buyer.total') }}: </span>
           <PriceDisplay :price="cartStore.checkedAmount" size="large" />
-          <el-button @click="showCheckout = false">Cancel</el-button>
-          <el-button type="primary" :loading="submitting" @click="handleSubmitOrder">Submit Order</el-button>
+          <el-button @click="showCheckout = false">{{ t('buyer.cancel') }}</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmitOrder">{{ t('buyer.submitOrder') }}</el-button>
         </div>
       </template>
     </el-dialog>

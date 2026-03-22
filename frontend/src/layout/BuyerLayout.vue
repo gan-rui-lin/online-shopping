@@ -1,22 +1,32 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
+import { useLocaleStore } from '@/stores/locale'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const localeStore = useLocaleStore()
+const { t } = useI18n()
 const nickname = computed(() => userStore.nickname)
 const isMerchant = computed(() => userStore.isMerchant)
 const isAdmin = computed(() => userStore.isAdmin)
+const isZhCN = computed(() => localeStore.isZhCN)
 
-const menuItems = [
-  { path: '/buyer/profile', label: 'My Profile', icon: 'User' },
-  { path: '/buyer/orders', label: 'My Orders', icon: 'Document' },
-  { path: '/buyer/cart', label: 'Shopping Cart', icon: 'ShoppingCart' },
-  { path: '/buyer/addresses', label: 'My Addresses', icon: 'Location' },
-  { path: '/buyer/merchant-apply', label: 'Become Merchant', icon: 'Shop' },
-]
+const menuItems = computed(() => [
+  { path: '/buyer/profile', label: t('buyerLayout.myProfile'), icon: 'User' },
+  { path: '/buyer/orders', label: t('buyerLayout.myOrders'), icon: 'Document' },
+  { path: '/buyer/cart', label: t('buyerLayout.shoppingCart'), icon: 'ShoppingCart' },
+  { path: '/buyer/intelligence', label: t('buyerLayout.intelligenceHub'), icon: 'MagicStick' },
+  { path: '/buyer/addresses', label: t('buyerLayout.myAddresses'), icon: 'Location' },
+  { path: '/buyer/merchant-apply', label: t('buyerLayout.becomeMerchant'), icon: 'Shop' },
+])
+
+function switchLocale(locale: 'zh-CN' | 'en-US') {
+  localeStore.applyLocale(locale)
+}
 
 function goHome() {
   router.push('/')
@@ -34,13 +44,25 @@ async function handleLogout() {
       <div class="header-inner container">
         <div class="logo" @click="goHome">
           <el-icon :size="24"><ShoppingCart /></el-icon>
-          <span class="logo-text">Online Shopping</span>
+          <span class="logo-text">{{ t('publicLayout.logo') }}</span>
         </div>
         <nav class="nav-links">
-          <router-link to="/">Home</router-link>
-          <router-link to="/products">Products</router-link>
+          <router-link to="/">{{ t('common.home') }}</router-link>
+          <router-link to="/products">{{ t('common.products') }}</router-link>
         </nav>
         <div class="header-right">
+          <el-dropdown trigger="click" @command="switchLocale">
+            <el-button text>
+              <el-icon><Operation /></el-icon>
+              <span>{{ isZhCN ? t('common.chinese') : t('common.english') }}</span>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="zh-CN">{{ t('common.chinese') }}</el-dropdown-item>
+                <el-dropdown-item command="en-US">{{ t('common.english') }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-dropdown @command="(cmd: string) => cmd === 'logout' ? handleLogout() : router.push(cmd === 'merchant' ? '/merchant' : cmd === 'admin' ? '/admin' : '/')" trigger="click">
             <span class="user-dropdown">
               <el-icon><User /></el-icon>
@@ -49,9 +71,9 @@ async function handleLogout() {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="isMerchant" command="merchant">Merchant Center</el-dropdown-item>
-                <el-dropdown-item v-if="isAdmin" command="admin">Admin Panel</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>Logout</el-dropdown-item>
+                <el-dropdown-item v-if="isMerchant" command="merchant">{{ t('buyerLayout.merchantCenter') }}</el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" command="admin">{{ t('buyerLayout.adminPanel') }}</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>{{ t('common.logout') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>

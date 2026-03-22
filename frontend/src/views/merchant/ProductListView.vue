@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyProducts, onShelfProduct, offShelfProduct, deleteProduct } from '@/api/product'
 import type { ProductSimpleVO } from '@/types/product'
-import { ProductStatus, ProductStatusMap } from '@/constants/enums'
+import { ProductStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
+import { getProductStatusLabel } from '@/utils/i18nStatus'
 
 const router = useRouter()
 const list = ref<ProductSimpleVO[]>([])
@@ -13,6 +15,7 @@ const total = ref(0)
 const loading = ref(false)
 const pageNum = ref(1)
 const pageSize = ref(10)
+const { t } = useI18n()
 
 async function fetchProducts() {
   loading.value = true
@@ -36,7 +39,7 @@ function handlePageChange(page: number) {
 async function handleOnShelf(spuId: number) {
   try {
     await onShelfProduct(spuId)
-    ElMessage.success('Product is now on shelf')
+    ElMessage.success(t('merchant.productOnShelf'))
     fetchProducts()
   } catch { /* handled */ }
 }
@@ -44,16 +47,16 @@ async function handleOnShelf(spuId: number) {
 async function handleOffShelf(spuId: number) {
   try {
     await offShelfProduct(spuId)
-    ElMessage.success('Product taken off shelf')
+    ElMessage.success(t('merchant.productOffShelf'))
     fetchProducts()
   } catch { /* handled */ }
 }
 
 async function handleDelete(spuId: number) {
-  await ElMessageBox.confirm('Delete this product? This action cannot be undone.', 'Confirm')
+  await ElMessageBox.confirm(t('merchant.delete'), t('buyer.confirm'))
   try {
     await deleteProduct(spuId)
-    ElMessage.success('Product deleted')
+    ElMessage.success(t('merchant.productDeleted'))
     fetchProducts()
   } catch { /* handled */ }
 }
@@ -68,34 +71,39 @@ onMounted(fetchProducts)
 <template>
   <div class="product-list-page">
     <div class="page-header mb-16">
-      <h2 class="page-title">Product Management</h2>
+      <h2 class="page-title">{{ t('merchant.productManagement') }}</h2>
       <el-button type="primary" @click="router.push('/merchant/products/create')">
-        <el-icon><Plus /></el-icon> Create Product
+        <el-icon><Plus /></el-icon> {{ t('merchant.createProduct') }}
       </el-button>
     </div>
 
     <div class="card-box">
       <el-table v-loading="loading" :data="list" stripe>
-        <el-table-column label="Image" width="80">
+        <el-table-column :label="t('merchant.image')" width="80">
           <template #default="{ row }">
             <el-image :src="row.mainImage" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
               <template #error><div style="width: 48px; height: 48px; background: #f5f7fa; display: flex; align-items: center; justify-content: center;"><el-icon><Picture /></el-icon></div></template>
             </el-image>
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="Title" min-width="200" show-overflow-tooltip />
-        <el-table-column label="Price" width="140">
+        <el-table-column prop="title" :label="t('intelligence.product')" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="t('intelligence.price')" width="140">
           <template #default="{ row }">
             <PriceDisplay :price="row.minPrice" size="small" />
           </template>
         </el-table-column>
-        <el-table-column prop="salesCount" label="Sales" width="80" />
-        <el-table-column label="Actions" width="240" fixed="right">
+        <el-table-column :label="t('merchant.status')" width="110">
           <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="router.push(`/merchant/products/edit/${row.spuId}`)">Edit</el-button>
-            <el-button v-if="row.status !== ProductStatus.ON_SHELF" text type="success" size="small" @click="handleOnShelf(row.spuId)">On Shelf</el-button>
-            <el-button v-if="row.status === ProductStatus.ON_SHELF" text type="warning" size="small" @click="handleOffShelf(row.spuId)">Off Shelf</el-button>
-            <el-button text type="danger" size="small" @click="handleDelete(row.spuId)">Delete</el-button>
+            <el-tag :type="getStatusType(row.status)" size="small">{{ getProductStatusLabel(t, row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="salesCount" :label="t('merchant.sales')" width="80" />
+        <el-table-column :label="t('buyer.action')" width="240" fixed="right">
+          <template #default="{ row }">
+            <el-button text type="primary" size="small" @click="router.push(`/merchant/products/edit/${row.spuId}`)">{{ t('merchant.edit') }}</el-button>
+            <el-button v-if="row.status !== ProductStatus.ON_SHELF" text type="success" size="small" @click="handleOnShelf(row.spuId)">{{ t('merchant.onShelfAction') }}</el-button>
+            <el-button v-if="row.status === ProductStatus.ON_SHELF" text type="warning" size="small" @click="handleOffShelf(row.spuId)">{{ t('merchant.offShelfAction') }}</el-button>
+            <el-button text type="danger" size="small" @click="handleDelete(row.spuId)">{{ t('merchant.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>

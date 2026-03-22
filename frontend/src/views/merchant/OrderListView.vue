@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMerchantOrders, deliverOrder, approveRefund, rejectRefund } from '@/api/order'
 import type { OrderListVO, OrderQueryDTO } from '@/types/order'
-import { OrderStatus, OrderStatusMap } from '@/constants/enums'
+import { OrderStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
 import { formatDate } from '@/utils/format'
+import { getOrderStatusLabel } from '@/utils/i18nStatus'
 
 const orders = ref<OrderListVO[]>([])
 const total = ref(0)
@@ -16,13 +18,14 @@ const query = ref<OrderQueryDTO>({
   pageSize: 10,
   orderStatus: undefined,
 })
+const { t } = useI18n()
 
 const statusTabs = [
-  { label: 'All', value: undefined },
-  { label: 'To Ship', value: OrderStatus.TO_SHIP },
-  { label: 'Shipped', value: OrderStatus.TO_RECEIVE },
-  { label: 'Completed', value: OrderStatus.COMPLETED },
-  { label: 'Refunding', value: OrderStatus.REFUNDING },
+  { label: 'buyer.all', value: undefined },
+  { label: 'buyer.toShip', value: OrderStatus.TO_SHIP },
+  { label: 'buyer.toReceive', value: OrderStatus.TO_RECEIVE },
+  { label: 'buyer.completed', value: OrderStatus.COMPLETED },
+  { label: 'merchant.refunding', value: OrderStatus.REFUNDING },
 ]
 
 const activeTab = ref('all')
@@ -54,32 +57,32 @@ function handlePageChange(page: number) {
 }
 
 async function handleDeliver(orderNo: string) {
-  await ElMessageBox.confirm('Confirm delivery of this order?', 'Confirm')
+  await ElMessageBox.confirm(t('merchant.ship'), t('buyer.confirm'))
   try {
     await deliverOrder(orderNo)
-    ElMessage.success('Order marked as delivered')
+    ElMessage.success(t('merchant.ship'))
     fetchOrders()
   } catch { /* handled */ }
 }
 
 async function handleApproveRefund(orderNo: string) {
-  await ElMessageBox.confirm('Approve this refund request?', 'Confirm')
+  await ElMessageBox.confirm(t('merchant.approveRefund'), t('buyer.confirm'))
   try {
     await approveRefund(orderNo)
-    ElMessage.success('Refund approved')
+    ElMessage.success(t('merchant.approveRefund'))
     fetchOrders()
   } catch { /* handled */ }
 }
 
 async function handleRejectRefund(orderNo: string) {
-  const { value } = await ElMessageBox.prompt('Reject reason', 'Reject Refund', {
-    confirmButtonText: 'Reject',
-    inputValidator: (v) => !!v || 'Reason is required',
+  const { value } = await ElMessageBox.prompt(t('buyer.refundReason'), t('merchant.rejectRefund'), {
+    confirmButtonText: t('merchant.rejectRefund'),
+    inputValidator: (v) => !!v || t('buyer.reasonRequired'),
   }).catch(() => ({ value: null }))
   if (value === null) return
   try {
     await rejectRefund(orderNo, value)
-    ElMessage.success('Refund rejected')
+    ElMessage.success(t('merchant.rejectRefund'))
     fetchOrders()
   } catch { /* handled */ }
 }
@@ -102,21 +105,21 @@ onMounted(fetchOrders)
 
 <template>
   <div class="merchant-orders-page">
-    <h2 class="page-title mb-24">Order Management</h2>
+    <h2 class="page-title mb-24">{{ t('merchant.orderManagement') }}</h2>
 
     <el-tabs v-model="activeTab" @tab-change="handleTabChange">
       <el-tab-pane
         v-for="tab in statusTabs"
         :key="tab.value === undefined ? 'all' : tab.value"
-        :label="tab.label"
+        :label="t(tab.label)"
         :name="tab.value === undefined ? 'all' : String(tab.value)"
       />
     </el-tabs>
 
     <div class="card-box">
       <el-table v-loading="loading" :data="orders" stripe>
-        <el-table-column prop="orderNo" label="Order No" width="200" />
-        <el-table-column label="Items" min-width="240">
+        <el-table-column prop="orderNo" :label="t('buyer.order')" width="200" />
+        <el-table-column :label="t('buyer.orderItems')" min-width="240">
           <template #default="{ row }">
             <div v-for="item in row.itemList" :key="item.skuId" class="item-row">
               <span class="text-ellipsis">{{ item.productTitle }}</span>
@@ -124,26 +127,26 @@ onMounted(fetchOrders)
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Amount" width="120">
+        <el-table-column :label="t('buyer.total')" width="120">
           <template #default="{ row }">
             <PriceDisplay :price="row.payAmount" size="small" />
           </template>
         </el-table-column>
-        <el-table-column label="Status" width="120">
+        <el-table-column :label="t('merchant.status')" width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.orderStatus)" size="small">
-              {{ OrderStatusMap[row.orderStatus] }}
+              {{ getOrderStatusLabel(t, row.orderStatus) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Created" width="170">
+        <el-table-column :label="t('buyer.created')" width="170">
           <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
         </el-table-column>
-        <el-table-column label="Actions" width="200" fixed="right">
+        <el-table-column :label="t('buyer.action')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.orderStatus === OrderStatus.TO_SHIP" type="primary" text size="small" @click="handleDeliver(row.orderNo)">Ship</el-button>
-            <el-button v-if="row.orderStatus === OrderStatus.REFUNDING" type="success" text size="small" @click="handleApproveRefund(row.orderNo)">Approve Refund</el-button>
-            <el-button v-if="row.orderStatus === OrderStatus.REFUNDING" type="danger" text size="small" @click="handleRejectRefund(row.orderNo)">Reject Refund</el-button>
+            <el-button v-if="row.orderStatus === OrderStatus.TO_SHIP" type="primary" text size="small" @click="handleDeliver(row.orderNo)">{{ t('merchant.ship') }}</el-button>
+            <el-button v-if="row.orderStatus === OrderStatus.REFUNDING" type="success" text size="small" @click="handleApproveRefund(row.orderNo)">{{ t('merchant.approveRefund') }}</el-button>
+            <el-button v-if="row.orderStatus === OrderStatus.REFUNDING" type="danger" text size="small" @click="handleRejectRefund(row.orderNo)">{{ t('merchant.rejectRefund') }}</el-button>
           </template>
         </el-table-column>
       </el-table>

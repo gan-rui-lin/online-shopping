@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getCategoryTree, createCategory } from '@/api/category'
 import type { CategoryVO, CategoryCreateDTO } from '@/types/product'
@@ -9,6 +10,7 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
 const saving = ref(false)
+const { t } = useI18n()
 
 const form = reactive<CategoryCreateDTO>({
   parentId: 0,
@@ -17,7 +19,7 @@ const form = reactive<CategoryCreateDTO>({
 })
 
 const rules: FormRules = {
-  categoryName: [{ required: true, message: 'Category name is required', trigger: 'blur' }],
+  categoryName: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
 }
 
 const treeProps = {
@@ -49,7 +51,7 @@ async function handleSave() {
   saving.value = true
   try {
     await createCategory(form)
-    ElMessage.success('Category created')
+    ElMessage.success(t('admin.categoryCreated'))
     dialogVisible.value = false
     fetchTree()
   } catch { /* handled */ } finally {
@@ -63,9 +65,9 @@ onMounted(fetchTree)
 <template>
   <div class="category-manage-page">
     <div class="page-header mb-24">
-      <h2 class="page-title">Category Management</h2>
+      <h2 class="page-title">{{ t('admin.categoryManagement') }}</h2>
       <el-button type="primary" @click="openCreate(0)">
-        <el-icon><Plus /></el-icon> Add Top Category
+        <el-icon><Plus /></el-icon> {{ t('admin.addTopCategory') }}
       </el-button>
     </div>
 
@@ -82,31 +84,31 @@ onMounted(fetchTree)
             <span>{{ data.categoryName }}</span>
             <span class="tree-actions">
               <el-button text type="primary" size="small" @click.stop="openCreate(data.id)">
-                Add Child
+                {{ t('admin.addChild') }}
               </el-button>
             </span>
           </div>
         </template>
       </el-tree>
 
-      <el-empty v-if="!loading && !treeData.length" description="No categories yet" />
+      <el-empty v-if="!loading && !treeData.length" :description="t('admin.noCategories')" />
     </div>
 
-    <el-dialog v-model="dialogVisible" title="Create Category" width="420px">
+    <el-dialog v-model="dialogVisible" :title="t('admin.createCategory')" width="420px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="Parent">
-          <el-input :model-value="form.parentId === 0 ? 'Root' : `ID: ${form.parentId}`" disabled />
+        <el-form-item :label="t('admin.parent')">
+          <el-input :model-value="form.parentId === 0 ? t('admin.root') : `${t('admin.id')}: ${form.parentId}`" disabled />
         </el-form-item>
-        <el-form-item label="Name" prop="categoryName">
-          <el-input v-model="form.categoryName" placeholder="Category name" />
+        <el-form-item :label="t('admin.name')" prop="categoryName">
+          <el-input v-model="form.categoryName" :placeholder="t('admin.categoryNamePlaceholder')" />
         </el-form-item>
-        <el-form-item label="Sort Order">
+        <el-form-item :label="t('admin.sortOrder')">
           <el-input-number v-model="form.sortOrder" :min="0" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">Create</el-button>
+        <el-button @click="dialogVisible = false">{{ t('buyer.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('admin.createCategory') }}</el-button>
       </template>
     </el-dialog>
   </div>

@@ -17,3 +17,7 @@ export function getHotProducts(limit = 10): Promise<RecommendProductVO[]> {
 export function getSimilarProducts(spuId: number, limit = 6): Promise<RecommendProductVO[]> {
   return request.get<RecommendProductVO[]>(`/recommend/similar/${spuId}`, { limit })
 }
+
+export function getPersonalProducts(limit = 10): Promise<RecommendProductVO[]> {
+  return request.get<RecommendProductVO[]>('/recommend/personal', { limit })
+}

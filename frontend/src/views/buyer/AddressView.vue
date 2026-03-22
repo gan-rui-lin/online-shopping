@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { getAddressList, createAddress, updateAddress, deleteAddress } from '@/api/address'
 import type { AddressVO, AddressCreateDTO, AddressUpdateDTO } from '@/types/address'
@@ -11,6 +12,7 @@ const dialogTitle = ref('Add Address')
 const formRef = ref<FormInstance>()
 const saving = ref(false)
 const editingId = ref<number | null>(null)
+const { t } = useI18n()
 
 const form = reactive({
   receiverName: '',
@@ -25,12 +27,12 @@ const form = reactive({
 })
 
 const rules: FormRules = {
-  receiverName: [{ required: true, message: 'Required', trigger: 'blur' }],
-  receiverPhone: [{ required: true, message: 'Required', trigger: 'blur' }],
-  province: [{ required: true, message: 'Required', trigger: 'blur' }],
-  city: [{ required: true, message: 'Required', trigger: 'blur' }],
-  district: [{ required: true, message: 'Required', trigger: 'blur' }],
-  detailAddress: [{ required: true, message: 'Required', trigger: 'blur' }],
+  receiverName: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
+  receiverPhone: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
+  province: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
+  city: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
+  district: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
+  detailAddress: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
 }
 
 async function fetchAddresses() {
@@ -46,14 +48,14 @@ async function fetchAddresses() {
 
 function openCreate() {
   editingId.value = null
-  dialogTitle.value = 'Add Address'
+  dialogTitle.value = t('buyer.addAddress')
   Object.assign(form, { receiverName: '', receiverPhone: '', province: '', city: '', district: '', detailAddress: '', postalCode: '', isDefault: 0, tagName: '' })
   dialogVisible.value = true
 }
 
 function openEdit(addr: AddressVO) {
   editingId.value = addr.id
-  dialogTitle.value = 'Edit Address'
+  dialogTitle.value = t('buyer.editAddress')
   Object.assign(form, {
     receiverName: addr.receiverName,
     receiverPhone: addr.receiverPhone,
@@ -75,10 +77,10 @@ async function handleSave() {
   try {
     if (editingId.value) {
       await updateAddress({ id: editingId.value, ...form } as AddressUpdateDTO)
-      ElMessage.success('Address updated')
+      ElMessage.success(t('buyer.addressUpdated'))
     } else {
       await createAddress(form as AddressCreateDTO)
-      ElMessage.success('Address created')
+      ElMessage.success(t('buyer.addressCreated'))
     }
     dialogVisible.value = false
     fetchAddresses()
@@ -88,10 +90,10 @@ async function handleSave() {
 }
 
 async function handleDelete(id: number) {
-  await ElMessageBox.confirm('Delete this address?', 'Confirm')
+  await ElMessageBox.confirm(t('buyer.deleteAddressConfirm'), t('buyer.confirm'))
   try {
     await deleteAddress(id)
-    ElMessage.success('Address deleted')
+    ElMessage.success(t('buyer.addressDeleted'))
     fetchAddresses()
   } catch { /* handled */ }
 }
@@ -99,7 +101,7 @@ async function handleDelete(id: number) {
 async function handleSetDefault(addr: AddressVO) {
   try {
     await updateAddress({ id: addr.id, isDefault: 1 })
-    ElMessage.success('Default address set')
+    ElMessage.success(t('buyer.defaultSet'))
     fetchAddresses()
   } catch { /* handled */ }
 }
@@ -110,9 +112,9 @@ onMounted(fetchAddresses)
 <template>
   <div class="address-page">
     <div class="page-header mb-16">
-      <h2 class="page-title">My Addresses</h2>
+      <h2 class="page-title">{{ t('buyer.myAddresses') }}</h2>
       <el-button type="primary" @click="openCreate">
-        <el-icon><Plus /></el-icon> Add Address
+        <el-icon><Plus /></el-icon> {{ t('buyer.addAddress') }}
       </el-button>
     </div>
 
@@ -122,51 +124,51 @@ onMounted(fetchAddresses)
           <div class="address-top">
             <span class="receiver-name">{{ addr.receiverName }}</span>
             <span class="receiver-phone">{{ addr.receiverPhone }}</span>
-            <el-tag v-if="addr.isDefault === 1" size="small" type="primary">Default</el-tag>
+            <el-tag v-if="addr.isDefault === 1" size="small" type="primary">{{ t('buyer.setDefault') }}</el-tag>
             <el-tag v-if="addr.tagName" size="small" type="info">{{ addr.tagName }}</el-tag>
           </div>
           <p class="full-address">{{ addr.fullAddress || `${addr.province} ${addr.city} ${addr.district} ${addr.detailAddress}` }}</p>
         </div>
         <div class="address-actions">
-          <el-button text type="primary" @click="openEdit(addr)">Edit</el-button>
-          <el-button v-if="addr.isDefault !== 1" text type="primary" @click="handleSetDefault(addr)">Set Default</el-button>
-          <el-button text type="danger" @click="handleDelete(addr.id)">Delete</el-button>
+          <el-button text type="primary" @click="openEdit(addr)">{{ t('buyer.editAddress') }}</el-button>
+          <el-button v-if="addr.isDefault !== 1" text type="primary" @click="handleSetDefault(addr)">{{ t('buyer.setDefault') }}</el-button>
+          <el-button text type="danger" @click="handleDelete(addr.id)">{{ t('merchant.delete') }}</el-button>
         </div>
       </div>
 
-      <el-empty v-if="!loading && !addresses.length" description="No addresses yet" />
+      <el-empty v-if="!loading && !addresses.length" :description="t('buyer.noAddress')" />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="Name" prop="receiverName">
+        <el-form-item :label="t('buyer.receiverName')" prop="receiverName">
           <el-input v-model="form.receiverName" />
         </el-form-item>
-        <el-form-item label="Phone" prop="receiverPhone">
+        <el-form-item :label="t('buyer.phone')" prop="receiverPhone">
           <el-input v-model="form.receiverPhone" />
         </el-form-item>
-        <el-form-item label="Province" prop="province">
+        <el-form-item :label="t('buyer.province')" prop="province">
           <el-input v-model="form.province" />
         </el-form-item>
-        <el-form-item label="City" prop="city">
+        <el-form-item :label="t('buyer.city')" prop="city">
           <el-input v-model="form.city" />
         </el-form-item>
-        <el-form-item label="District" prop="district">
+        <el-form-item :label="t('buyer.district')" prop="district">
           <el-input v-model="form.district" />
         </el-form-item>
-        <el-form-item label="Detail Address" prop="detailAddress">
+        <el-form-item :label="t('buyer.detailAddress')" prop="detailAddress">
           <el-input v-model="form.detailAddress" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="Tag">
-          <el-input v-model="form.tagName" placeholder="e.g. Home, Office" />
+        <el-form-item :label="t('buyer.tag')">
+          <el-input v-model="form.tagName" :placeholder="t('buyer.tagPlaceholder')" />
         </el-form-item>
-        <el-form-item label="Default">
+        <el-form-item :label="t('buyer.setDefault')">
           <el-switch v-model="form.isDefault" :active-value="1" :inactive-value="0" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">Save</el-button>
+        <el-button @click="dialogVisible = false">{{ t('buyer.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('buyer.saveChanges') }}</el-button>
       </template>
     </el-dialog>
   </div>

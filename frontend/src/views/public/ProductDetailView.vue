@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getProductDetail } from '@/api/product'
 import { getProductReviews, getReviewStatistics } from '@/api/review'
@@ -32,6 +33,7 @@ const reviewPageNum = ref(1)
 const reviewTotal = ref(0)
 
 const similarProducts = ref<RecommendProductVO[]>([])
+const { t } = useI18n()
 
 const currentImage = ref('')
 const imageList = computed(() => {
@@ -52,18 +54,18 @@ function selectSku(sku: ProductSkuVO) {
 
 async function handleAddToCart() {
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('Please login first')
+    ElMessage.warning(t('login.title'))
     router.push({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
   if (!selectedSku.value) {
-    ElMessage.warning('Please select a specification')
+    ElMessage.warning(t('productDetail.selectSpec'))
     return
   }
   addingToCart.value = true
   try {
     await addToCart({ skuId: selectedSku.value.skuId, quantity: quantity.value })
-    ElMessage.success('Added to cart')
+    ElMessage.success(t('productDetail.addedToCart'))
   } catch {
     // handled by interceptor
   } finally {
@@ -118,7 +120,7 @@ onMounted(async () => {
 
     fetchReviews()
   } catch {
-    ElMessage.error('Failed to load product')
+    ElMessage.error(t('common.requestFailed'))
   } finally {
     loading.value = false
   }
@@ -168,13 +170,13 @@ onMounted(async () => {
           </div>
 
           <div class="meta-row">
-            <span>Sales: {{ product.salesCount }}</span>
-            <span>Favorites: {{ product.favoriteCount }}</span>
-            <span v-if="product.shopName">Shop: {{ product.shopName }}</span>
+            <span>{{ t('productDetail.sales') }}: {{ product.salesCount }}</span>
+            <span>{{ t('productDetail.favorites') }}: {{ product.favoriteCount }}</span>
+            <span v-if="product.shopName">{{ t('productDetail.shop') }}: {{ product.shopName }}</span>
           </div>
 
           <div v-if="product.skuList?.length" class="sku-section">
-            <h4>Specifications</h4>
+            <h4>{{ t('productDetail.specifications') }}</h4>
             <div class="sku-list">
               <div
                 v-for="sku in product.skuList"
@@ -184,25 +186,25 @@ onMounted(async () => {
                 @click="sku.stock > 0 && selectSku(sku)"
               >
                 <span>{{ sku.skuName || formatSpec(sku.specJson) || sku.skuCode }}</span>
-                <span v-if="sku.stock <= 0" class="out-of-stock">Out of stock</span>
+                <span v-if="sku.stock <= 0" class="out-of-stock">{{ t('productDetail.outOfStock') }}</span>
               </div>
             </div>
           </div>
 
           <div class="quantity-section">
-            <span>Quantity</span>
+            <span>{{ t('buyer.quantity') }}</span>
             <el-input-number
               v-model="quantity"
               :min="1"
               :max="selectedSku?.stock || 999"
               size="default"
             />
-            <span v-if="selectedSku" class="stock-info">Stock: {{ selectedSku.stock }}</span>
+            <span v-if="selectedSku" class="stock-info">{{ t('productDetail.stock') }}: {{ selectedSku.stock }}</span>
           </div>
 
           <div class="action-section">
             <el-button type="primary" size="large" :loading="addingToCart" @click="handleAddToCart">
-              <el-icon><ShoppingCart /></el-icon> Add to Cart
+              <el-icon><ShoppingCart /></el-icon> {{ t('productDetail.addToCart') }}
             </el-button>
           </div>
         </div>
@@ -210,42 +212,42 @@ onMounted(async () => {
 
       <div class="detail-bottom mt-24">
         <el-tabs v-model="activeTab">
-          <el-tab-pane label="Product Details" name="detail">
+          <el-tab-pane :label="t('productDetail.details')" name="detail">
             <div class="detail-content card-box">
               <div v-if="product.detailText" v-html="product.detailText" />
-              <el-empty v-else description="No detail available" />
+              <el-empty v-else :description="t('productDetail.noDetail')" />
             </div>
           </el-tab-pane>
 
-          <el-tab-pane :label="`Reviews (${reviewStats?.totalCount ?? 0})`" name="reviews">
+          <el-tab-pane :label="`${t('productDetail.reviewsTab')} (${reviewStats?.totalCount ?? 0})`" name="reviews">
             <div class="review-content card-box">
               <div v-if="reviewStats" class="review-summary mb-16">
                 <div class="stat-item">
                   <span class="stat-value">{{ reviewStats.totalCount }}</span>
-                  <span class="stat-label">Total</span>
+                  <span class="stat-label">{{ t('productDetail.total') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value good">{{ reviewStats.goodRate }}%</span>
-                  <span class="stat-label">Positive</span>
+                  <span class="stat-label">{{ t('productDetail.positive') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value">{{ reviewStats.goodCount }}</span>
-                  <span class="stat-label">Good</span>
+                  <span class="stat-label">{{ t('productDetail.good') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value">{{ reviewStats.mediumCount }}</span>
-                  <span class="stat-label">Medium</span>
+                  <span class="stat-label">{{ t('productDetail.medium') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value">{{ reviewStats.badCount }}</span>
-                  <span class="stat-label">Bad</span>
+                  <span class="stat-label">{{ t('productDetail.bad') }}</span>
                 </div>
               </div>
 
               <div v-loading="reviewLoading">
                 <div v-for="review in reviews" :key="review.reviewId" class="review-item">
                   <div class="review-header">
-                    <span class="reviewer">{{ review.anonymousFlag ? 'Anonymous' : review.nickname }}</span>
+                    <span class="reviewer">{{ review.anonymousFlag ? t('productDetail.anonymous') : review.nickname }}</span>
                     <el-rate :model-value="review.score" disabled />
                     <span class="review-date">{{ formatDate(review.createTime) }}</span>
                   </div>
@@ -261,12 +263,12 @@ onMounted(async () => {
                     />
                   </div>
                   <div v-if="review.replyContent" class="review-reply">
-                    <span class="reply-label">Merchant reply:</span>
+                    <span class="reply-label">{{ t('productDetail.merchantReply') }}</span>
                     {{ review.replyContent }}
                   </div>
                 </div>
 
-                <el-empty v-if="!reviewLoading && !reviews.length" description="No reviews yet" />
+                <el-empty v-if="!reviewLoading && !reviews.length" :description="t('productDetail.noReviews')" />
 
                 <el-pagination
                   v-if="reviewTotal > 10"
@@ -284,7 +286,7 @@ onMounted(async () => {
       </div>
 
       <div v-if="similarProducts.length" class="similar-section mt-24">
-        <h2 class="section-title">Similar Products</h2>
+        <h2 class="section-title">{{ t('productDetail.similarProducts') }}</h2>
         <div class="product-grid">
           <ProductCard v-for="item in similarProducts" :key="item.spuId" :product="toSimpleVO(item)" />
         </div>

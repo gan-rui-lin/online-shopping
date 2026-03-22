@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { createProduct, updateProduct, getProductDetail } from '@/api/product'
 import { getCategoryTree } from '@/api/category'
@@ -12,6 +13,7 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const saving = ref(false)
 const categories = ref<CategoryVO[]>([])
+const { t } = useI18n()
 
 const isEdit = computed(() => !!route.params.id)
 const editSpuId = computed(() => Number(route.params.id))
@@ -30,8 +32,8 @@ const form = reactive<ProductSpuCreateDTO>({
 const newImageUrl = ref('')
 
 const rules: FormRules = {
-  title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
-  categoryId: [{ required: true, message: 'Category is required', trigger: 'change' }],
+  title: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
+  categoryId: [{ required: true, message: t('buyer.required'), trigger: 'change' }],
 }
 
 function addSku() {
@@ -78,10 +80,10 @@ async function handleSave() {
         imageList: form.imageList,
         skuList: form.skuList,
       })
-      ElMessage.success('Product updated')
+      ElMessage.success(t('merchant.productUpdated'))
     } else {
       await createProduct(form)
-      ElMessage.success('Product created')
+      ElMessage.success(t('merchant.productCreated'))
     }
     router.push('/merchant/products')
   } catch { /* handled */ } finally {
@@ -118,7 +120,7 @@ onMounted(async () => {
         imageUrl: s.imageUrl || '',
       })) || []
     } catch {
-      ElMessage.error('Failed to load product')
+      ElMessage.error(t('common.requestFailed'))
     } finally {
       loading.value = false
     }
@@ -130,21 +132,21 @@ onMounted(async () => {
   <div v-loading="loading" class="product-create-page">
     <div class="page-header mb-24">
       <el-button text @click="router.push('/merchant/products')">
-        <el-icon><ArrowLeft /></el-icon> Back
+        <el-icon><ArrowLeft /></el-icon> {{ t('buyer.back') }}
       </el-button>
-      <h2 class="page-title">{{ isEdit ? 'Edit Product' : 'Create Product' }}</h2>
+      <h2 class="page-title">{{ isEdit ? t('merchant.edit') : t('merchant.createProduct') }}</h2>
     </div>
 
     <div class="card-box">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="140px" style="max-width: 800px">
-        <el-form-item label="Title" prop="title">
-          <el-input v-model="form.title" placeholder="Product title" />
+        <el-form-item :label="t('merchant.productTitle')" prop="title">
+          <el-input v-model="form.title" :placeholder="t('merchant.productTitlePlaceholder')" />
         </el-form-item>
-        <el-form-item label="Subtitle">
-          <el-input v-model="form.subTitle" placeholder="Short description" />
+        <el-form-item :label="t('merchant.productSubtitle')">
+          <el-input v-model="form.subTitle" :placeholder="t('merchant.productSubtitlePlaceholder')" />
         </el-form-item>
-        <el-form-item label="Category" prop="categoryId">
-          <el-select v-model="form.categoryId" placeholder="Select category">
+        <el-form-item :label="t('merchant.category')" prop="categoryId">
+          <el-select v-model="form.categoryId" :placeholder="t('merchant.categoryPlaceholder')">
             <template v-for="cat in categories" :key="cat.id">
               <el-option :label="cat.categoryName" :value="cat.id" />
               <el-option
@@ -156,14 +158,14 @@ onMounted(async () => {
             </template>
           </el-select>
         </el-form-item>
-        <el-form-item label="Brand">
-          <el-input v-model="form.brandName" placeholder="Brand name" />
+        <el-form-item :label="t('merchant.brand')">
+          <el-input v-model="form.brandName" :placeholder="t('merchant.brandPlaceholder')" />
         </el-form-item>
-        <el-form-item label="Main Image URL">
-          <el-input v-model="form.mainImage" placeholder="Main product image URL" />
+        <el-form-item :label="t('merchant.mainImageUrl')">
+          <el-input v-model="form.mainImage" :placeholder="t('merchant.mainImagePlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="Image Gallery">
+        <el-form-item :label="t('merchant.imageGallery')">
           <div class="image-list mb-16">
             <div v-for="(url, idx) in form.imageList" :key="idx" class="image-thumb">
               <el-image :src="url" fit="cover" style="width: 80px; height: 80px; border-radius: 4px" />
@@ -171,70 +173,70 @@ onMounted(async () => {
             </div>
           </div>
           <div class="add-row">
-            <el-input v-model="newImageUrl" placeholder="Paste image URL" @keyup.enter="addImage" />
-            <el-button @click="addImage">Add</el-button>
+            <el-input v-model="newImageUrl" :placeholder="t('merchant.pasteImageUrl')" @keyup.enter="addImage" />
+            <el-button @click="addImage">{{ t('merchant.add') }}</el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="Detail Content">
-          <el-input v-model="form.detailText" type="textarea" :rows="6" placeholder="Product detail (supports HTML)" />
+        <el-form-item :label="t('merchant.detailContent')">
+          <el-input v-model="form.detailText" type="textarea" :rows="6" :placeholder="t('merchant.detailContentPlaceholder')" />
         </el-form-item>
 
-        <el-divider>SKU Specifications</el-divider>
+        <el-divider>{{ t('merchant.skuSpecifications') }}</el-divider>
 
         <div v-for="(sku, idx) in form.skuList" :key="idx" class="sku-card card-box mb-16">
           <div class="sku-header">
-            <span>SKU #{{ idx + 1 }}</span>
-            <el-button text type="danger" size="small" @click="removeSku(idx)">Remove</el-button>
+            <span>{{ t('merchant.skuIndex', { index: idx + 1 }) }}</span>
+            <el-button text type="danger" size="small" @click="removeSku(idx)">{{ t('merchant.remove') }}</el-button>
           </div>
           <el-row :gutter="16">
             <el-col :span="8">
-              <el-form-item label="SKU Name">
-                <el-input v-model="sku.skuName" placeholder="e.g. Red / Large" />
+              <el-form-item :label="t('merchant.skuName')">
+                <el-input v-model="sku.skuName" :placeholder="t('merchant.skuNamePlaceholder')" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
-              <el-form-item label="SKU Code">
+              <el-form-item :label="t('merchant.skuCode')">
                 <el-input v-model="sku.skuCode" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
-              <el-form-item label="Spec JSON">
-                <el-input v-model="sku.specJson" placeholder='{"color":"red"}' />
+              <el-form-item :label="t('merchant.specJson')">
+                <el-input v-model="sku.specJson" :placeholder="t('merchant.specJsonPlaceholder')" />
               </el-form-item>
             </el-col>
           </el-row>
           <el-row :gutter="16">
             <el-col :span="8">
-              <el-form-item label="Price">
+              <el-form-item :label="t('intelligence.price')">
                 <el-input-number v-model="sku.price" :min="0" :precision="2" style="width: 100%" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
-              <el-form-item label="Origin Price">
+              <el-form-item :label="t('merchant.originPrice')">
                 <el-input-number v-model="sku.originPrice" :min="0" :precision="2" style="width: 100%" />
               </el-form-item>
             </el-col>
             <el-col :span="8">
-              <el-form-item label="Stock">
+              <el-form-item :label="t('productDetail.stock')">
                 <el-input-number v-model="sku.stock" :min="0" style="width: 100%" />
               </el-form-item>
             </el-col>
           </el-row>
-          <el-form-item label="Image URL">
-            <el-input v-model="sku.imageUrl" placeholder="SKU image URL" />
+          <el-form-item :label="t('merchant.imageUrl')">
+            <el-input v-model="sku.imageUrl" :placeholder="t('merchant.skuImagePlaceholder')" />
           </el-form-item>
         </div>
 
         <el-button @click="addSku" class="mb-24">
-          <el-icon><Plus /></el-icon> Add SKU
+          <el-icon><Plus /></el-icon> {{ t('merchant.addSku') }}
         </el-button>
 
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="handleSave">
-            {{ isEdit ? 'Update Product' : 'Create Product' }}
+            {{ isEdit ? t('merchant.productUpdated') : t('merchant.createProduct') }}
           </el-button>
-          <el-button @click="router.push('/merchant/products')">Cancel</el-button>
+          <el-button @click="router.push('/merchant/products')">{{ t('buyer.cancel') }}</el-button>
         </el-form-item>
       </el-form>
     </div>

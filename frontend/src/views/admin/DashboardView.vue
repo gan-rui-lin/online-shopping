@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getDashboard } from '@/api/admin'
 import type { DashboardVO } from '@/types/admin'
 import { formatPrice } from '@/utils/format'
 
 const stats = ref<DashboardVO | null>(null)
 const loading = ref(true)
+const { t } = useI18n()
 
 const cards = [
-  { key: 'userCount', label: 'Total Users', icon: 'User', bg: '#e6f7ff', color: '#1890ff' },
-  { key: 'merchantCount', label: 'Merchants', icon: 'Shop', bg: '#f6ffed', color: '#52c41a' },
-  { key: 'productCount', label: 'Products', icon: 'Goods', bg: '#fff7e6', color: '#fa8c16' },
-  { key: 'orderCount', label: 'Total Orders', icon: 'Document', bg: '#f9f0ff', color: '#722ed1' },
-  { key: 'todayOrderCount', label: 'Today Orders', icon: 'Timer', bg: '#fff1f0', color: '#f5222d' },
+  { key: 'userCount', label: 'admin.totalUsers', icon: 'User', bg: '#e6f7ff', color: '#1890ff' },
+  { key: 'merchantCount', label: 'admin.totalMerchants', icon: 'Shop', bg: '#f6ffed', color: '#52c41a' },
+  { key: 'productCount', label: 'admin.totalProducts', icon: 'Goods', bg: '#fff7e6', color: '#fa8c16' },
+  { key: 'orderCount', label: 'admin.totalOrders', icon: 'Document', bg: '#f9f0ff', color: '#722ed1' },
+  { key: 'todayOrderCount', label: 'admin.todayOrders', icon: 'Timer', bg: '#fff1f0', color: '#f5222d' },
 ] as const
 
 onMounted(async () => {
@@ -26,7 +28,7 @@ onMounted(async () => {
 
 <template>
   <div v-loading="loading" class="admin-dashboard">
-    <h2 class="page-title mb-24">Platform Dashboard</h2>
+    <h2 class="page-title mb-24">{{ t('admin.platformDashboard') }}</h2>
 
     <template v-if="stats">
       <el-row :gutter="20" class="mb-24">
@@ -37,7 +39,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ stats[card.key] }}</span>
-              <span class="stat-label">{{ card.label }}</span>
+              <span class="stat-label">{{ t(card.label) }}</span>
             </div>
           </div>
         </el-col>
@@ -51,7 +53,7 @@ onMounted(async () => {
             </div>
             <div class="stat-info">
               <span class="stat-value">{{ formatPrice(stats.gmv) }}</span>
-              <span class="stat-label">GMV (Gross Merchandise Value)</span>
+              <span class="stat-label">{{ t('admin.gmv') }}</span>
             </div>
           </div>
         </el-col>

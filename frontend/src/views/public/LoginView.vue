@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import type { LoginDTO } from '@/types/auth'
@@ -8,6 +9,7 @@ import type { LoginDTO } from '@/types/auth'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { t } = useI18n()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 
@@ -17,8 +19,8 @@ const form = reactive<LoginDTO>({
 })
 
 const rules: FormRules<LoginDTO> = {
-  username: [{ required: true, message: 'Please enter username', trigger: 'blur' }],
-  password: [{ required: true, message: 'Please enter password', trigger: 'blur' }],
+  username: [{ required: true, message: t('login.validationUsername'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.validationPassword'), trigger: 'blur' }],
 }
 
 async function handleLogin() {
@@ -28,7 +30,7 @@ async function handleLogin() {
   loading.value = true
   try {
     await userStore.login(form)
-    ElMessage.success('Login successful')
+    ElMessage.success(t('login.success'))
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
   } catch {
@@ -42,24 +44,24 @@ async function handleLogin() {
 <template>
   <div class="login-page">
     <div class="login-card card-box">
-      <h2 class="login-title">Welcome Back</h2>
-      <p class="login-subtitle">Sign in to your account</p>
+      <h2 class="login-title">{{ t('login.title') }}</h2>
+      <p class="login-subtitle">{{ t('login.subtitle') }}</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large">
-        <el-form-item label="Username" prop="username">
+        <el-form-item :label="t('login.username')" prop="username">
           <el-input
             v-model="form.username"
-            placeholder="Enter your username"
+            :placeholder="t('login.usernamePlaceholder')"
             :prefix-icon="User"
             @keyup.enter="handleLogin"
           />
         </el-form-item>
 
-        <el-form-item label="Password" prop="password">
+        <el-form-item :label="t('login.password')" prop="password">
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="Enter your password"
+            :placeholder="t('login.passwordPlaceholder')"
             :prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
@@ -68,14 +70,14 @@ async function handleLogin() {
 
         <el-form-item>
           <el-button type="primary" :loading="loading" class="login-btn" @click="handleLogin">
-            Login
+            {{ t('common.login') }}
           </el-button>
         </el-form-item>
       </el-form>
 
       <div class="login-footer">
-        <span>Don't have an account?</span>
-        <router-link to="/register">Register now</router-link>
+        <span>{{ t('login.noAccount') }}</span>
+        <router-link to="/register">{{ t('login.registerNow') }}</router-link>
       </div>
     </div>
   </div>

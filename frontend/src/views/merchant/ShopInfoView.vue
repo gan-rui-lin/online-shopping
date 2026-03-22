@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getCurrentShop, updateShop } from '@/api/merchant'
 import type { MerchantShopVO, ShopUpdateDTO } from '@/types/merchant'
@@ -8,6 +9,7 @@ const shop = ref<MerchantShopVO | null>(null)
 const formRef = ref<FormInstance>()
 const loading = ref(true)
 const saving = ref(false)
+const { t } = useI18n()
 
 const form = reactive<ShopUpdateDTO>({
   shopName: '',
@@ -16,7 +18,7 @@ const form = reactive<ShopUpdateDTO>({
 })
 
 const rules: FormRules = {
-  shopName: [{ required: true, message: 'Shop name is required', trigger: 'blur' }],
+  shopName: [{ required: true, message: t('buyer.required'), trigger: 'blur' }],
 }
 
 async function fetchShop() {
@@ -39,7 +41,7 @@ async function handleSave() {
   saving.value = true
   try {
     await updateShop(form)
-    ElMessage.success('Shop info updated')
+    ElMessage.success(t('merchant.shopUpdated'))
     fetchShop()
   } catch { /* handled */ } finally {
     saving.value = false
@@ -51,33 +53,33 @@ onMounted(fetchShop)
 
 <template>
   <div v-loading="loading" class="shop-info-page">
-    <h2 class="page-title mb-24">Shop Information</h2>
+    <h2 class="page-title mb-24">{{ t('merchant.shopInformation') }}</h2>
 
     <div class="card-box" style="max-width: 600px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="Shop ID">
+        <el-form-item :label="t('merchant.shopId')">
           <el-input :model-value="String(shop?.shopId || '')" disabled />
         </el-form-item>
-        <el-form-item label="Shop Status">
+        <el-form-item :label="t('merchant.shopStatus')">
           <el-tag :type="shop?.shopStatus === 1 ? 'success' : 'warning'">
-            {{ shop?.shopStatus === 1 ? 'Active' : 'Inactive' }}
+            {{ shop?.shopStatus === 1 ? t('merchant.active') : t('merchant.inactive') }}
           </el-tag>
         </el-form-item>
-        <el-form-item label="Shop Name" prop="shopName">
+        <el-form-item :label="t('merchantLayout.shopInfo')" prop="shopName">
           <el-input v-model="form.shopName" />
         </el-form-item>
-        <el-form-item label="Shop Logo URL">
-          <el-input v-model="form.shopLogo" placeholder="Enter logo URL" />
+        <el-form-item :label="t('merchant.shopLogoUrl')">
+          <el-input v-model="form.shopLogo" :placeholder="t('merchant.shopLogoPlaceholder')" />
           <el-image v-if="form.shopLogo" :src="form.shopLogo" fit="contain" class="logo-preview" />
         </el-form-item>
-        <el-form-item label="Description">
-          <el-input v-model="form.shopDesc" type="textarea" :rows="4" placeholder="Describe your shop" />
+        <el-form-item :label="t('merchant.description')">
+          <el-input v-model="form.shopDesc" type="textarea" :rows="4" :placeholder="t('merchant.descriptionPlaceholder')" />
         </el-form-item>
-        <el-form-item label="Rating">
+        <el-form-item :label="t('merchant.rating')">
           <el-rate :model-value="shop?.score || 0" disabled show-score />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="saving" @click="handleSave">Save Changes</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">{{ t('buyer.saveChanges') }}</el-button>
         </el-form-item>
       </el-form>
     </div>

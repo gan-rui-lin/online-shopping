@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { register } from '@/api/auth'
 
 const router = useRouter()
+const { t } = useI18n()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 
@@ -28,7 +30,7 @@ const form = reactive<RegisterForm>({
 
 const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
   if (value !== form.password) {
-    callback(new Error('Passwords do not match'))
+    callback(new Error(t('register.passwordNotMatch')))
   } else {
     callback()
   }
@@ -36,15 +38,15 @@ const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
 
 const rules: FormRules<RegisterForm> = {
   username: [
-    { required: true, message: 'Please enter username', trigger: 'blur' },
-    { min: 3, max: 64, message: '3 to 64 characters', trigger: 'blur' },
+    { required: true, message: t('register.validationUsernameRequired'), trigger: 'blur' },
+    { min: 3, max: 64, message: t('register.validationUsernameLength'), trigger: 'blur' },
   ],
   password: [
-    { required: true, message: 'Please enter password', trigger: 'blur' },
-    { min: 6, max: 64, message: '6 to 64 characters', trigger: 'blur' },
+    { required: true, message: t('register.validationPasswordRequired'), trigger: 'blur' },
+    { min: 6, max: 64, message: t('register.validationPasswordLength'), trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: 'Please confirm password', trigger: 'blur' },
+    { required: true, message: t('register.validationConfirmRequired'), trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' },
   ],
 }
@@ -62,7 +64,7 @@ async function handleRegister() {
       phone: form.phone || undefined,
       email: form.email || undefined,
     })
-    ElMessage.success('Registration successful. Please login.')
+    ElMessage.success(t('register.success'))
     router.push('/login')
   } catch {
     // error already handled by interceptor
@@ -75,44 +77,44 @@ async function handleRegister() {
 <template>
   <div class="register-page">
     <div class="register-card card-box">
-      <h2 class="register-title">Create Account</h2>
-      <p class="register-subtitle">Fill in the information below to get started</p>
+      <h2 class="register-title">{{ t('register.title') }}</h2>
+      <p class="register-subtitle">{{ t('register.subtitle') }}</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large">
-        <el-form-item label="Username" prop="username">
-          <el-input v-model="form.username" placeholder="3 to 64 characters" />
+        <el-form-item :label="t('register.username')" prop="username">
+          <el-input v-model="form.username" :placeholder="t('register.usernamePlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="Password" prop="password">
-          <el-input v-model="form.password" type="password" placeholder="6 to 64 characters" show-password />
+        <el-form-item :label="t('register.password')" prop="password">
+          <el-input v-model="form.password" type="password" :placeholder="t('register.passwordPlaceholder')" show-password />
         </el-form-item>
 
-        <el-form-item label="Confirm Password" prop="confirmPassword">
-          <el-input v-model="form.confirmPassword" type="password" placeholder="Re-enter password" show-password />
+        <el-form-item :label="t('register.confirmPassword')" prop="confirmPassword">
+          <el-input v-model="form.confirmPassword" type="password" :placeholder="t('register.confirmPasswordPlaceholder')" show-password />
         </el-form-item>
 
-        <el-form-item label="Nickname">
-          <el-input v-model="form.nickname" placeholder="Optional" />
+        <el-form-item :label="t('register.nickname')">
+          <el-input v-model="form.nickname" :placeholder="t('register.optional')" />
         </el-form-item>
 
-        <el-form-item label="Phone">
-          <el-input v-model="form.phone" placeholder="Optional" />
+        <el-form-item :label="t('register.phone')">
+          <el-input v-model="form.phone" :placeholder="t('register.optional')" />
         </el-form-item>
 
-        <el-form-item label="Email">
-          <el-input v-model="form.email" placeholder="Optional" />
+        <el-form-item :label="t('register.email')">
+          <el-input v-model="form.email" :placeholder="t('register.optional')" />
         </el-form-item>
 
         <el-form-item>
           <el-button type="primary" :loading="loading" class="register-btn" @click="handleRegister">
-            Register
+            {{ t('common.register') }}
           </el-button>
         </el-form-item>
       </el-form>
 
       <div class="register-footer">
-        <span>Already have an account?</span>
-        <router-link to="/login">Login</router-link>
+        <span>{{ t('register.haveAccount') }}</span>
+        <router-link to="/login">{{ t('common.login') }}</router-link>
       </div>
     </div>
   </div>

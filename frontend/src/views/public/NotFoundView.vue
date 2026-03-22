@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 </script>
 
 <template>
   <div class="not-found-page">
     <div class="not-found-content">
       <h1 class="error-code">404</h1>
-      <p class="error-message">The page you are looking for does not exist.</p>
-      <el-button type="primary" size="large" @click="router.push('/')">Back to Home</el-button>
+      <p class="error-message">{{ t('notFound.message') }}</p>
+      <el-button type="primary" size="large" @click="router.push('/')">{{ t('notFound.backHome') }}</el-button>
     </div>
   </div>
 </template>
