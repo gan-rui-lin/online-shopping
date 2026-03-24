@@ -1,0 +1,25 @@
+package com.helloworld.onlineshopping.modules.file.dto;
+
+import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+
+@Data
+public class MultipleFileUploadRequest {
+
+    @NotNull(message = "文件列表不能为空")
+    @Size(min = 1, max = 10, message = "最多上传10个文件")
+    private List<MultipartFile> files;
+
+    // 可选：文件分类
+    private String category;
+
+    // 可选：是否生成缩略图
+    private Boolean generateThumbnail = false;
+
+    // 可选：是否添加水印
+    private Boolean addWatermark = false;
+}
