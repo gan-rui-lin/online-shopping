@@ -13,6 +13,9 @@ import com.helloworld.onlineshopping.modules.product.entity.ProductSkuEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSkuMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEvent;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventPublisher;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ public class CartService {
     private final ProductSkuMapper skuMapper;
     private final ProductSpuMapper spuMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final RecommendEventPublisher recommendEventPublisher;
 
     private static final String CART_KEY_PREFIX = "cart:user:";
 
@@ -65,6 +69,12 @@ public class CartService {
 
         // Invalidate Redis cache
         redisTemplate.delete(CART_KEY_PREFIX + userId);
+
+        // Publish recommendation event
+        try {
+            recommendEventPublisher.publish(
+                RecommendEvent.of(userId, sku.getSpuId(), RecommendEventType.CART_ADD));
+        } catch (Exception ignored) {}
     }
 
     public CartVO getCartList() {

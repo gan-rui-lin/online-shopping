@@ -6,6 +6,9 @@ import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.common.security.SecurityUtil;
 import com.helloworld.onlineshopping.modules.behavior.service.BrowseHistoryService;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEvent;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventPublisher;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventType;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
@@ -51,6 +54,7 @@ public class ProductService {
     private final ProductImageMapper imageMapper;
     private final MerchantShopMapper shopMapper;
     private final BrowseHistoryService browseHistoryService;
+    private final RecommendEventPublisher recommendEventPublisher;
     private final RedissonClient redissonClient;
     private final ObjectProvider<EsProductService> esProductServiceProvider;
     
@@ -249,6 +253,8 @@ public class ProductService {
             var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.getPrincipal() instanceof com.helloworld.onlineshopping.common.security.LoginUser loginUser) {
                 browseHistoryService.recordBrowse(loginUser.getUserId(), spuId);
+                recommendEventPublisher.publish(
+                    RecommendEvent.of(loginUser.getUserId(), spuId, RecommendEventType.PRODUCT_VIEW));
             }
         } catch (Exception ignored) {}
 

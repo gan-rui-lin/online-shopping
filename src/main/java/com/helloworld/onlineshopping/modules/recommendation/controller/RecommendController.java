@@ -17,19 +17,19 @@ import java.util.List;
 public class RecommendController {
     private final RecommendService recommendService;
 
-    @Operation(summary = "Hot products")
+    @Operation(summary = "Hot products (time-decay scored)")
     @GetMapping("/hot")
     public Result<List<RecommendProductVO>> hot(@RequestParam(defaultValue = "10") int limit) {
         return Result.success(recommendService.getHotProducts(limit));
     }
 
-    @Operation(summary = "Similar products")
+    @Operation(summary = "Similar products (multi-attribute + co-purchase)")
     @GetMapping("/similar/{spuId}")
     public Result<List<RecommendProductVO>> similar(@PathVariable Long spuId, @RequestParam(defaultValue = "6") int limit) {
         return Result.success(recommendService.getSimilarProducts(spuId, limit));
     }
 
-    @Operation(summary = "Personal recommendations")
+    @Operation(summary = "Personal recommendations (interest profile + collaborative filtering + hot fill)")
     @GetMapping("/personal")
     public Result<List<RecommendProductVO>> personal(@RequestParam(defaultValue = "10") int limit) {
         return Result.success(recommendService.getPersonalRecommend(limit));

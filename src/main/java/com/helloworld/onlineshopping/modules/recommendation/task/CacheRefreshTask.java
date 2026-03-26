@@ -1,27 +1,33 @@
 package com.helloworld.onlineshopping.modules.recommendation.task;
 
+import com.helloworld.onlineshopping.modules.recommendation.service.CoPurchaseService;
 import com.helloworld.onlineshopping.modules.recommendation.service.RecommendService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * Nightly full cache refresh: hot products + co-purchase matrix.
+ * Runs once every 12 hours to keep recommendation data fresh.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class CacheRefreshTask {
 
     private final RecommendService recommendService;
+    private final CoPurchaseService coPurchaseService;
 
-    // 定时刷新热门商品，每5分钟执行一次
-    @Scheduled(fixedRate = 300000)
-    public void refreshHotData() {
-        log.info("--- 定时任务：开始刷新热点缓存数据 ---");
+    @Scheduled(fixedRate = 12 * 3600 * 1000, initialDelay = 120000)
+    public void refreshAllRecommendationData() {
+        log.info("--- Scheduled task: full recommendation data refresh ---");
         try {
             recommendService.refreshHotProducts();
-            log.info("--- 定时任务：热点缓存数据刷新完成 ---");
+            coPurchaseService.rebuildCoPurchaseMatrix();
+            log.info("--- Full recommendation data refresh complete ---");
         } catch (Exception e) {
-            log.error("热点数据刷新失败", e);
+            log.error("Recommendation data refresh failed", e);
         }
     }
 }

@@ -11,6 +11,9 @@ import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEvent;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventPublisher;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +28,7 @@ public class FavoriteService {
     private final UserFavoriteMapper favoriteMapper;
     private final ProductSpuMapper spuMapper;
     private final MerchantShopMapper shopMapper;
+    private final RecommendEventPublisher recommendEventPublisher;
 
     @Transactional
     public boolean toggleFavorite(Long spuId) {
@@ -40,6 +44,8 @@ public class FavoriteService {
                 spu.setFavoriteCount(spu.getFavoriteCount() - 1);
                 spuMapper.updateById(spu);
             }
+            recommendEventPublisher.publish(
+                RecommendEvent.of(userId, spuId, RecommendEventType.PRODUCT_UNFAVORITE));
             return false;
         } else {
             UserFavoriteEntity entity = new UserFavoriteEntity();
@@ -51,6 +57,8 @@ public class FavoriteService {
                 spu.setFavoriteCount(spu.getFavoriteCount() + 1);
                 spuMapper.updateById(spu);
             }
+            recommendEventPublisher.publish(
+                RecommendEvent.of(userId, spuId, RecommendEventType.PRODUCT_FAVORITE));
             return true;
         }
     }

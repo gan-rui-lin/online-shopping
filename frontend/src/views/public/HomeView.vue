@@ -3,23 +3,43 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getCategoryTree } from '@/api/category'
-import { getHotProducts, getSimilarProducts, getPersonalProducts, type RecommendProductVO } from '@/api/recommend'
+import { getHotProducts, getPersonalProducts, type RecommendProductVO } from '@/api/recommend'
 import type { CategoryVO, ProductSimpleVO } from '@/types/product'
 import ProductCard from '@/components/ProductCard.vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const userStore = useUserStore()
 
 const categories = ref<CategoryVO[]>([])
 const hotProducts = ref<RecommendProductVO[]>([])
-const similarProducts = ref<RecommendProductVO[]>([])
 const personalProducts = ref<RecommendProductVO[]>([])
-const heroKeywords = computed(() =>
-  locale.value === 'zh-CN'
-    ? ['九分直筒裤', '游戏本', '空气炸锅', '跑步耳机', '健身手环']
-    : ['Straight Pants', 'Gaming Laptop', 'Air Fryer', 'Running Earbuds', 'Fitness Band'],
-)
 const loading = ref(true)
+
+const heroKeywords = computed(() => {
+  if (hotProducts.value.length > 0) {
+    return hotProducts.value
+      .slice(0, 5)
+      .map((p) => {
+        const title = p.title || ''
+        return title.length > 12 ? title.substring(0, 12) + '…' : title
+      })
+      .filter((t) => t.length > 0)
+  }
+  return categories.value.slice(0, 5).map((c) => c.categoryName)
+})
+
+const guessLikeProducts = computed(() => {
+  if (personalProducts.value.length > 0) return personalProducts.value.slice(0, 3)
+  return hotProducts.value.slice(0, 3)
+})
+
+const trendingProducts = computed(() => {
+  const personalIds = new Set(guessLikeProducts.value.map((p) => p.spuId))
+  const remaining = hotProducts.value.filter((p) => !personalIds.has(p.spuId))
+  return remaining.slice(0, 3)
+})
 
 function toProduct(item: RecommendProductVO): ProductSimpleVO {
   return {
@@ -38,17 +58,23 @@ function toCategory(id?: number) {
   router.push({ path: '/products', query: id ? { categoryId: String(id) } : undefined })
 }
 
+function searchKeyword(keyword: string) {
+  router.push({ path: '/products', query: { keyword } })
+}
+
 onMounted(async () => {
   try {
-    const [catRes, hotRes, simRes, personalRes] = await Promise.all([
+    const fetchPersonal = userStore.isLoggedIn
+      ? getPersonalProducts(12).catch(() => [])
+      : Promise.resolve([] as RecommendProductVO[])
+
+    const [catRes, hotRes, personalRes] = await Promise.all([
       getCategoryTree().catch(() => []),
       getHotProducts(12).catch(() => []),
-      getSimilarProducts(1000, 6).catch(() => []),
-      getPersonalProducts(6).catch(() => []),
+      fetchPersonal,
     ])
     categories.value = catRes
     hotProducts.value = hotRes
-    similarProducts.value = simRes
     personalProducts.value = personalRes
   } finally {
     loading.value = false
@@ -75,7 +101,12 @@ onMounted(async () => {
             <h1>{{ t('home.heroTitle') }}</h1>
             <p>{{ t('home.heroDesc') }}</p>
             <div class="keyword-line">
-              <span v-for="key in heroKeywords" :key="key">{{ key }}</span>
+              <span
+                v-for="key in heroKeywords"
+                :key="key"
+                class="keyword-tag"
+                @click.stop="searchKeyword(key)"
+              >{{ key }}</span>
             </div>
             <div class="cta-row">
               <el-button type="primary" size="large" @click="toCategory()">{{ t('home.shopNow') }}</el-button>
@@ -86,13 +117,39 @@ onMounted(async () => {
           </div>
 
           <div class="hero-cards">
-            <article class="small-card">
+            <article class="small-card clickable" @click="router.push('/products')">
               <h4>{{ t('home.guessLike') }}</h4>
-              <p>{{ t('home.guessLikeDesc') }}</p>
+              <div v-if="guessLikeProducts.length" class="mini-products">
+                <div
+                  v-for="item in guessLikeProducts"
+                  :key="item.spuId"
+                  class="mini-product"
+                  @click.stop="router.push(`/products/${item.spuId}`)"
+                >
+                  <el-image :src="item.mainImage" fit="cover" lazy>
+                    <template #error><div class="mini-placeholder"><el-icon><Picture /></el-icon></div></template>
+                  </el-image>
+                  <span class="mini-price">¥{{ item.minPrice }}</span>
+                </div>
+              </div>
+              <p v-else class="empty-hint">{{ t('home.guessLikeDesc') }}</p>
             </article>
-            <article class="small-card">
-              <h4>{{ t('home.aiGuide') }}</h4>
-              <p>{{ t('home.aiGuideDesc') }}</p>
+            <article class="small-card clickable" @click="router.push('/products')">
+              <h4>{{ t('home.hotProducts') }}</h4>
+              <div v-if="trendingProducts.length" class="mini-products">
+                <div
+                  v-for="item in trendingProducts"
+                  :key="item.spuId"
+                  class="mini-product"
+                  @click.stop="router.push(`/products/${item.spuId}`)"
+                >
+                  <el-image :src="item.mainImage" fit="cover" lazy>
+                    <template #error><div class="mini-placeholder"><el-icon><Picture /></el-icon></div></template>
+                  </el-image>
+                  <span class="mini-price">¥{{ item.minPrice }}</span>
+                </div>
+              </div>
+              <p v-else class="empty-hint">{{ t('home.aiGuideDesc') }}</p>
             </article>
           </div>
         </main>
@@ -116,18 +173,13 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section class="module-block two-col">
-        <div>
-          <div class="module-title"><h2>{{ t('home.similarRecommend') }}</h2></div>
-          <div class="product-grid compact">
-            <ProductCard v-for="item in similarProducts" :key="`s-${item.spuId}`" :product="toProduct(item)" class="float-hover" />
-          </div>
+      <section v-if="personalProducts.length" class="module-block">
+        <div class="module-title">
+          <h2>{{ t('home.personalRecommend') }}</h2>
+          <router-link to="/products">{{ t('home.viewMore') }}</router-link>
         </div>
-        <div>
-          <div class="module-title"><h2>{{ t('home.personalRecommend') }}</h2></div>
-          <div class="product-grid compact">
-            <ProductCard v-for="item in personalProducts" :key="`p-${item.spuId}`" :product="toProduct(item)" class="float-hover" />
-          </div>
+        <div class="product-grid">
+          <ProductCard v-for="item in personalProducts" :key="`p-${item.spuId}`" :product="toProduct(item)" class="float-hover" />
         </div>
       </section>
     </div>
@@ -235,6 +287,15 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.keyword-tag {
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+}
+
 .hero-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -249,12 +310,66 @@ onMounted(async () => {
 
     h4 {
       color: var(--text-primary);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
-    p {
-      color: var(--text-secondary);
-      font-size: 13px;
+    &.clickable {
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.15s;
+
+      &:hover {
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  .empty-hint {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .mini-products {
+    display: flex;
+    gap: 8px;
+  }
+
+  .mini-product {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    transition: box-shadow 0.15s;
+
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .el-image {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+    }
+
+    .mini-placeholder {
+      width: 100%;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-color, #f5f5f5);
+      color: var(--text-placeholder, #c0c4cc);
+    }
+
+    .mini-price {
+      display: block;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ff5e00;
+      padding: 4px 0;
     }
   }
 }

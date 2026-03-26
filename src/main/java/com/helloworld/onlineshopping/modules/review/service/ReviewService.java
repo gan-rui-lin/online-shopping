@@ -22,6 +22,8 @@ import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEvent;
+import com.helloworld.onlineshopping.modules.recommendation.event.RecommendEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,7 @@ public class ReviewService {
     private final UserMapper userMapper;
     private final MerchantShopMapper shopMapper;
     private final ProductSpuMapper spuMapper;
+    private final RecommendEventPublisher recommendEventPublisher;
 
     @Transactional
     public void createReview(ReviewCreateDTO dto) {
@@ -86,6 +89,12 @@ public class ReviewService {
         // Update order item review status
         orderItem.setReviewStatus(1);
         orderItemMapper.updateById(orderItem);
+
+        // Publish recommendation event
+        try {
+            recommendEventPublisher.publish(
+                RecommendEvent.ofReview(userId, orderItem.getSpuId(), dto.getScore()));
+        } catch (Exception ignored) {}
     }
 
     public PageResult<ReviewVO> getProductReviews(ReviewQueryDTO dto) {
