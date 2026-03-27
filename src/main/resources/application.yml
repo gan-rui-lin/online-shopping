@@ -2,6 +2,11 @@ server:
   port: 8080
 
 spring:
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: ${SPRING_RABBITMQ_LISTENER_AUTO_STARTUP:false}
+
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/online_shopping?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
@@ -33,11 +38,19 @@ spring:
 
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
+    username: ${ES_USERNAME:elastic}
+    password: ${ES_PASSWORD:}
 
 app:
   search:
     es:
       enabled: ${APP_SEARCH_ES_ENABLED:true}
+  ai:
+    enabled: ${APP_AI_ENABLED:false}
+    base-url: ${APP_AI_BASE_URL:https://openrouter.ai/api/v1/chat/completions}
+    api-key: ${APP_AI_API_KEY:}
+    model: ${APP_AI_MODEL:deepseek/deepseek-chat-v3-0324:free}
+    timeout-ms: ${APP_AI_TIMEOUT_MS:20000}
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}

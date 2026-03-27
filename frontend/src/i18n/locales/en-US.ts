@@ -97,8 +97,8 @@ export default {
     empty: 'No matching products found',
   },
   intelligence: {
-    title: 'Intelligence Center (Placeholder + Real APIs)',
-    subtitle: 'Covers RAG / Agent / AI Copywriting / Favorites / History / Plans from spec',
+    title: 'Intelligence Hub',
+    subtitle: 'Product-linked RAG, structured Agent shopping, and AI multi-dimensional copywriting',
     tabRag: 'RAG Q&A',
     tabAgent: 'Agent Shopping',
     tabCopywriting: 'AI Copywriting',
