@@ -59,3 +59,6 @@ frontend/.npmrc
 frontend/.pnpm-store/
 frontend/.idea
 frontend/.vscode/
+
+# xk specific
+*_xk.*

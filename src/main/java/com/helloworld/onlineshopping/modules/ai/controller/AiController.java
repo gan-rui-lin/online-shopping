@@ -5,11 +5,11 @@ import com.helloworld.onlineshopping.modules.ai.dto.CopywritingRequestDTO;
 import com.helloworld.onlineshopping.modules.ai.service.CopywritingService;
 import com.helloworld.onlineshopping.modules.ai.service.ReviewSummaryService;
 import com.helloworld.onlineshopping.modules.ai.vo.CopywritingResultVO;
+import com.helloworld.onlineshopping.modules.ai.vo.ProductEvaluationVO;
 import com.helloworld.onlineshopping.modules.ai.vo.ReviewSummaryVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "AI", description = "AI Copywriting & Review Summary APIs")
@@ -23,21 +23,18 @@ public class AiController {
 
     @Operation(summary = "Generate title")
     @PostMapping("/copywriting/title/{spuId}")
-    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
     public Result<CopywritingResultVO> title(@PathVariable Long spuId) {
         return Result.success(copywritingService.generateTitle(spuId));
     }
 
     @Operation(summary = "Generate description")
     @PostMapping("/copywriting/description")
-    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
     public Result<CopywritingResultVO> description(@RequestBody CopywritingRequestDTO dto) {
         return Result.success(copywritingService.generateDescription(dto.getKeywords(), dto.getTargetAudience(), dto.getStyle()));
     }
 
     @Operation(summary = "Generate selling points")
     @PostMapping("/copywriting/selling-points/{spuId}")
-    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
     public Result<CopywritingResultVO> sellingPoints(@PathVariable Long spuId) {
         return Result.success(copywritingService.generateSellingPoints(spuId));
     }
@@ -46,5 +43,11 @@ public class AiController {
     @GetMapping("/review-summary/{spuId}")
     public Result<ReviewSummaryVO> reviewSummary(@PathVariable Long spuId) {
         return Result.success(reviewSummaryService.summarizeReviews(spuId));
+    }
+
+    @Operation(summary = "Product multi-dimensional evaluation")
+    @GetMapping("/copywriting/evaluate/{spuId}")
+    public Result<ProductEvaluationVO> evaluate(@PathVariable Long spuId) {
+        return Result.success(copywritingService.evaluateProduct(spuId));
     }
 }

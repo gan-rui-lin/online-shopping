@@ -21,7 +21,7 @@ public class AgentController {
     @Operation(summary = "Create agent task")
     @PostMapping("/task")
     public Result<AgentTaskVO> create(@Valid @RequestBody AgentTaskCreateDTO dto) {
-        return Result.success(agentService.createTask(dto.getUserPrompt()));
+        return Result.success(agentService.createTask(dto));
     }
 
     @Operation(summary = "Get task result")

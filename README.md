@@ -56,6 +56,10 @@ All configurable variables:
 | `REDIS_PASSWORD` | *(empty)* | Redis password |
 | `APP_SEARCH_ES_ENABLED` | `true` | Enable Elasticsearch search |
 | `ES_URIS` | `http://127.0.0.1:9200` | Elasticsearch endpoint |
+| `APP_AI_ENABLED` | `false` | Enable external AI gateway |
+| `APP_AI_BASE_URL` | `https://openrouter.ai/api/v1/chat/completions` | OpenAI-compatible API URL |
+| `APP_AI_API_KEY` | *(empty)* | AI API key |
+| `APP_AI_MODEL` | `deepseek/deepseek-chat-v3-0324:free` | Model name |
 | `JWT_SECRET` | *(built-in default)* | JWT signing key (Base64) |
 
 ### 4. Run

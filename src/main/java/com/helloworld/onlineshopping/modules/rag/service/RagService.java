@@ -22,8 +22,8 @@ public class RagService {
     @Transactional
     public RagAnswerVO ask(RagAskDTO dto) {
         Long userId = SecurityUtil.getCurrentUserId();
-        List<ProductKnowledgeDocEntity> docs = knowledgeService.searchRelevant(dto.getSpuId(), dto.getQuestion(), 5);
-        String context = docs.stream().map(d -> d.getTitle() + ": " + d.getContent()).collect(Collectors.joining("\n"));
+        List<ProductKnowledgeDocEntity> docs = knowledgeService.searchRelevant(dto.getSpuId(), dto.getQuestion(), 3);
+        String context = docs.stream().map(d -> d.getTitle() + ": " + clip(d.getContent(), 220)).collect(Collectors.joining("\n"));
         String systemPrompt = "You are a helpful shopping assistant. Based on the following product information:\n" + context + "\n\nAnswer the customer's question accurately and helpfully.";
         String answer = aiClient.chat(systemPrompt, dto.getQuestion());
 
@@ -62,5 +62,12 @@ public class RagService {
         msg.setRole(role);
         msg.setContent(content);
         messageMapper.insert(msg);
+    }
+
+    private String clip(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text == null ? "" : text;
+        }
+        return text.substring(0, maxLength) + "...";
     }
 }

@@ -1,21 +1,31 @@
 package com.helloworld.onlineshopping.modules.ai.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.modules.ai.vo.CopywritingResultVO;
+import com.helloworld.onlineshopping.modules.ai.vo.ProductEvaluationVO;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
+import com.helloworld.onlineshopping.modules.review.entity.ProductReviewEntity;
+import com.helloworld.onlineshopping.modules.review.mapper.ProductReviewMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class CopywritingService {
 
     private final ProductSpuMapper spuMapper;
+    private final ProductReviewMapper reviewMapper;
     private final AiClient aiClient;
+    private final ObjectMapper objectMapper;
 
     public CopywritingResultVO generateTitle(Long spuId) {
         ProductSpuEntity spu = spuMapper.selectById(spuId);
@@ -46,5 +56,75 @@ public class CopywritingService {
         vo.setContent(result);
         vo.setVariants(Arrays.asList(result.split("\n")));
         return vo;
+    }
+
+    public ProductEvaluationVO evaluateProduct(Long spuId) {
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null) {
+            throw new BusinessException("Product not found");
+        }
+
+        List<ProductReviewEntity> reviews = reviewMapper.selectList(new LambdaQueryWrapper<ProductReviewEntity>()
+            .eq(ProductReviewEntity::getSpuId, spuId)
+            .eq(ProductReviewEntity::getReviewStatus, 1)
+            .last("LIMIT 20"));
+
+        String reviewText = reviews.stream()
+            .map(r -> "评分=" + r.getScore() + ", 内容=" + (r.getContent() == null ? "" : r.getContent()))
+            .collect(Collectors.joining("\n"));
+
+        String systemPrompt = "你是电商商品分析助手。请综合商品基本信息、销量与评价，生成多维度评价。" +
+            "必须输出 JSON，格式：" +
+            "{\"overallLevel\":\"高/中/低\",\"qualityScore\":0-10,\"valueScore\":0-10," +
+            "\"scenarioFit\":\"适合人群与场景\",\"potentialRisks\":[\"风险1\",\"风险2\"],\"summary\":\"一句话总结\"}";
+        String userPrompt = "商品标题=" + spu.getTitle() +
+            "\n副标题=" + safe(spu.getSubTitle()) +
+            "\n品牌=" + safe(spu.getBrandName()) +
+            "\n最低价=" + safe(spu.getMinPrice()) +
+            "\n销量=" + safe(spu.getSalesCount()) +
+            "\n评价条数=" + reviews.size() +
+            "\n评价样本=" + reviewText;
+        String aiText = aiClient.chat(systemPrompt, userPrompt);
+
+        ProductEvaluationVO vo = new ProductEvaluationVO();
+        vo.setSpuId(spuId);
+        vo.setOverallLevel("中");
+        vo.setQualityScore(7.0);
+        vo.setValueScore(7.0);
+        vo.setScenarioFit("通用日常场景");
+        vo.setPotentialRisks(List.of());
+        vo.setSummary("综合表现均衡，可按预算与偏好选择。");
+
+        try {
+            JsonNode root = objectMapper.readTree(aiText);
+            if (root.isObject()) {
+                String overall = root.path("overallLevel").asText();
+                if (StringUtils.hasText(overall)) {
+                    vo.setOverallLevel(overall);
+                }
+                vo.setQualityScore(root.path("qualityScore").asDouble(vo.getQualityScore()));
+                vo.setValueScore(root.path("valueScore").asDouble(vo.getValueScore()));
+
+                String fit = root.path("scenarioFit").asText();
+                if (StringUtils.hasText(fit)) {
+                    vo.setScenarioFit(fit);
+                }
+                if (root.path("potentialRisks").isArray()) {
+                    vo.setPotentialRisks(objectMapper.convertValue(root.path("potentialRisks"), List.class));
+                }
+                String summary = root.path("summary").asText();
+                if (StringUtils.hasText(summary)) {
+                    vo.setSummary(summary);
+                }
+            }
+        } catch (Exception ignore) {
+            // Fallback to default fields if AI response is not strict JSON.
+        }
+
+        return vo;
+    }
+
+    private String safe(Object value) {
+        return value == null ? "" : value.toString();
     }
 }
