@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 import javax.imageio.ImageIO;
@@ -42,5 +43,18 @@ public class ImageProcessorTest {
         assertNotNull(compressed);
         assertTrue(compressed.length > 0);
     }
-}
 
+    @Test
+    public void testNormalizeMainImageToFixedSpec() throws Exception {
+        byte[] original = createTestPng();
+
+        byte[] normalized = ImageProcessor.normalizeMainImage(original, 800, 800, 0.85f);
+        assertNotNull(normalized);
+        assertTrue(normalized.length > 0);
+
+        BufferedImage normalizedImage = ImageIO.read(new ByteArrayInputStream(normalized));
+        assertNotNull(normalizedImage);
+        assertEquals(800, normalizedImage.getWidth());
+        assertEquals(800, normalizedImage.getHeight());
+    }
+}

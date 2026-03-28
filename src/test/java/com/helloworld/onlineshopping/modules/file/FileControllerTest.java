@@ -1,5 +1,6 @@
 package com.helloworld.onlineshopping.modules.file;
 
+import com.helloworld.onlineshopping.modules.file.service.FileRecordService;
 import com.helloworld.onlineshopping.modules.file.service.FileStorageService;
 import com.helloworld.onlineshopping.common.utils.JwtUtil;
 import com.helloworld.onlineshopping.utils.ImageProcessor;
@@ -14,6 +15,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import java.util.Base64;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -34,6 +37,9 @@ public class FileControllerTest {
     @MockBean
     private FileStorageService fileStorageService;
 
+    @MockBean
+    private FileRecordService fileRecordService;
+
     // JwtAuthenticationFilter needs JwtUtil as a bean; provide a mock so the WebMvcTest slice can start
     @MockBean
     private JwtUtil jwtUtil;
@@ -49,7 +55,11 @@ public class FileControllerTest {
         imageProcessorStatic = Mockito.mockStatic(ImageProcessor.class);
         imageProcessorStatic.when(() -> ImageProcessor.generateThumbnail(Mockito.any(byte[].class), Mockito.anyInt(), Mockito.anyInt()))
                 .thenAnswer(invocation -> (byte[]) invocation.getArgument(0));
-        imageProcessorStatic.when(() -> ImageProcessor.addWatermark(Mockito.any(byte[].class), Mockito.anyString()))
+        imageProcessorStatic.when(() -> ImageProcessor.addWatermark(Mockito.any(byte[].class), Mockito.anyString(), Mockito.anyString(), Mockito.anyFloat(), Mockito.anyInt()))
+                .thenAnswer(invocation -> (byte[]) invocation.getArgument(0));
+        imageProcessorStatic.when(() -> ImageProcessor.normalizeMainImage(Mockito.any(byte[].class), Mockito.anyInt(), Mockito.anyInt(), Mockito.anyFloat()))
+                .thenAnswer(invocation -> (byte[]) invocation.getArgument(0));
+        imageProcessorStatic.when(() -> ImageProcessor.compressImage(Mockito.any(byte[].class), Mockito.anyFloat()))
                 .thenAnswer(invocation -> (byte[]) invocation.getArgument(0));
     }
 
@@ -79,8 +89,26 @@ public class FileControllerTest {
 
         mockMvc.perform(multipart("/api/files/upload/multiple").file(file1).file(file2).contentType(MediaType.MULTIPART_FORM_DATA))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].fileName").exists())
-                .andExpect(jsonPath("$[0].thumbnailUrl").value("https://example.com/file.png"));
+                .andExpect(jsonPath("$.files[0].fileName").exists())
+                .andExpect(jsonPath("$.files[0].thumbnailUrl").value("https://example.com/file.png"));
+    }
+
+    @Test
+    public void testUploadLocalFolder() throws Exception {
+        byte[] img = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=");
+        Path folder = Files.createTempDirectory("local-image-upload-test");
+        Files.write(folder.resolve("sample.png"), img);
+
+        mockMvc.perform(multipart("/api/files/upload/local-folder")
+                        .param("folderPath", folder.toString())
+                        .with(request -> {
+                            request.setMethod("POST");
+                            return request;
+                        })
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.files[0].fileName").exists())
+                .andExpect(jsonPath("$.files[0].url").value("https://example.com/file.png"));
     }
 }
-

@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +16,6 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -26,9 +24,6 @@ public class FileRecordService {
 
     @Autowired
     private FileRecordMapper fileRecordMapper;
-
-    @Autowired
-    private FileStorageService fileStorageService;
 
     @Value("${file.upload.temp-dir:/tmp/uploads}")
     private String tempDir;

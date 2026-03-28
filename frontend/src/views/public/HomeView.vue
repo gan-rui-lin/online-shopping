@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUserStore } from '@/stores/user'
 import { getCategoryTree } from '@/api/category'
 import { getHotProducts, getSimilarProducts, getPersonalProducts, type RecommendProductVO } from '@/api/recommend'
 import type { CategoryVO, ProductSimpleVO } from '@/types/product'
@@ -9,6 +10,7 @@ import ProductCard from '@/components/ProductCard.vue'
 
 const router = useRouter()
 const { t, locale } = useI18n()
+const userStore = useUserStore()
 
 const categories = ref<CategoryVO[]>([])
 const hotProducts = ref<RecommendProductVO[]>([])
@@ -40,11 +42,12 @@ function toCategory(id?: number) {
 
 onMounted(async () => {
   try {
+    const personalPromise = userStore.isLoggedIn ? getPersonalProducts(6).catch(() => []) : Promise.resolve([])
     const [catRes, hotRes, simRes, personalRes] = await Promise.all([
       getCategoryTree().catch(() => []),
       getHotProducts(12).catch(() => []),
       getSimilarProducts(1000, 6).catch(() => []),
-      getPersonalProducts(6).catch(() => []),
+      personalPromise,
     ])
     categories.value = catRes
     hotProducts.value = hotRes

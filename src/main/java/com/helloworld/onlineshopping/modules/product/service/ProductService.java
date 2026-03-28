@@ -9,6 +9,8 @@ import com.helloworld.onlineshopping.modules.behavior.service.BrowseHistoryServi
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
+import com.helloworld.onlineshopping.modules.product.dto.ProductImageBindDTO;
+import com.helloworld.onlineshopping.modules.product.dto.ProductImageBindItemDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSkuDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSpuCreateDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSpuUpdateDTO;
@@ -37,7 +39,9 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -53,6 +57,10 @@ public class ProductService {
     private final BrowseHistoryService browseHistoryService;
     private final RedissonClient redissonClient;
     private final ObjectProvider<EsProductService> esProductServiceProvider;
+
+    private static final int IMAGE_TYPE_SPU_MAIN = 1;
+    private static final int IMAGE_TYPE_SPU_DETAIL = 2;
+    private static final int IMAGE_TYPE_SKU = 3;
     
     // Bloom Filter instance
     private RBloomFilter<Long> productBloomFilter;
@@ -427,6 +435,101 @@ public class ProductService {
 
     @CacheEvict(value = "product:detail", key = "#spuId")
     @Transactional
+    public void bindProductImages(Long spuId, ProductImageBindDTO dto) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null || spu.getDeleted() != null && spu.getDeleted() == 1) {
+            throw new BusinessException("Product not found");
+        }
+
+        MerchantShopEntity shop = shopMapper.selectOne(
+            new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
+        if (shop == null || !shop.getId().equals(spu.getShopId())) {
+            throw new BusinessException("No permission to modify this product");
+        }
+
+        List<ProductImageBindItemDTO> items = dto.getImages();
+        Map<Long, ProductImageBindItemDTO> skuMainMap = new HashMap<>();
+
+        imageMapper.delete(new LambdaQueryWrapper<ProductImageEntity>()
+            .eq(ProductImageEntity::getSpuId, spuId));
+
+        for (int i = 0; i < items.size(); i++) {
+            ProductImageBindItemDTO item = items.get(i);
+            int imageType = item.getImageType() == null ? IMAGE_TYPE_SPU_DETAIL : item.getImageType();
+            if (imageType != IMAGE_TYPE_SPU_MAIN && imageType != IMAGE_TYPE_SPU_DETAIL && imageType != IMAGE_TYPE_SKU) {
+                throw new BusinessException("Unsupported imageType: " + imageType);
+            }
+
+            String imageUrl = sanitizeImageUrl(item.getImageUrl());
+            if (!StringUtils.hasText(imageUrl)) {
+                throw new BusinessException("Image URL cannot be empty");
+            }
+
+            Long skuId = item.getSkuId();
+            if (imageType == IMAGE_TYPE_SKU) {
+                if (skuId == null) {
+                    throw new BusinessException("skuId is required for SKU images");
+                }
+                ProductSkuEntity sku = skuMapper.selectById(skuId);
+                if (sku == null || !spuId.equals(sku.getSpuId())) {
+                    throw new BusinessException("SKU does not belong to the product");
+                }
+
+                int currentSort = item.getSortOrder() == null ? i : item.getSortOrder();
+                ProductImageBindItemDTO current = skuMainMap.get(skuId);
+                if (current == null || (current.getSortOrder() == null ? Integer.MAX_VALUE : current.getSortOrder()) > currentSort) {
+                    ProductImageBindItemDTO winner = new ProductImageBindItemDTO();
+                    winner.setImageUrl(imageUrl);
+                    winner.setSortOrder(currentSort);
+                    skuMainMap.put(skuId, winner);
+                }
+            } else {
+                skuId = null;
+            }
+
+            ProductImageEntity image = new ProductImageEntity();
+            image.setSpuId(spuId);
+            image.setSkuId(skuId);
+            image.setImageUrl(imageUrl);
+            image.setImageType(imageType);
+            image.setSortOrder(item.getSortOrder() == null ? i : item.getSortOrder());
+            image.setCreateTime(LocalDateTime.now());
+            imageMapper.insert(image);
+        }
+
+        String mainImage = sanitizeImageUrl(dto.getMainImageUrl());
+        if (!StringUtils.hasText(mainImage)) {
+            mainImage = items.stream()
+                .filter(item -> item.getImageType() != null && item.getImageType() == IMAGE_TYPE_SPU_MAIN)
+                .map(ProductImageBindItemDTO::getImageUrl)
+                .map(this::sanitizeImageUrl)
+                .filter(StringUtils::hasText)
+                .findFirst()
+                .orElseGet(() -> items.stream()
+                    .filter(item -> item.getImageType() != null && item.getImageType() == IMAGE_TYPE_SPU_DETAIL)
+                    .map(ProductImageBindItemDTO::getImageUrl)
+                    .map(this::sanitizeImageUrl)
+                    .filter(StringUtils::hasText)
+                    .findFirst()
+                    .orElse(spu.getMainImage()));
+        }
+        spu.setMainImage(mainImage);
+        spuMapper.updateById(spu);
+
+        for (Map.Entry<Long, ProductImageBindItemDTO> entry : skuMainMap.entrySet()) {
+            ProductSkuEntity sku = skuMapper.selectById(entry.getKey());
+            if (sku != null && spuId.equals(sku.getSpuId())) {
+                sku.setImageUrl(entry.getValue().getImageUrl());
+                skuMapper.updateById(sku);
+            }
+        }
+
+        syncProductToEsById(spuId);
+    }
+
+    @CacheEvict(value = "product:detail", key = "#spuId")
+    @Transactional
     public void deleteProduct(Long spuId) {
         Long userId = SecurityUtil.getCurrentUserId();
         ProductSpuEntity spu = spuMapper.selectById(spuId);
@@ -489,5 +592,16 @@ public class ProductService {
         } catch (Exception ex) {
             log.warn("Delete product from ES failed, spuId={}", spuId, ex);
         }
+    }
+
+    private String sanitizeImageUrl(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return raw;
+        }
+        String value = raw.trim().replace("\\", "/");
+        while ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.substring(1, value.length() - 1).trim();
+        }
+        return value;
     }
 }

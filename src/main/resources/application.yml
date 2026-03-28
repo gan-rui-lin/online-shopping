@@ -41,6 +41,11 @@ spring:
     username: ${ES_USERNAME:elastic}
     password: ${ES_PASSWORD:}
 
+  servlet:
+    multipart:
+      max-file-size: ${FILE_UPLOAD_MAX_SIZE:10MB}
+      max-request-size: ${FILE_UPLOAD_MAX_REQUEST_SIZE:50MB}
+
 app:
   search:
     es:
@@ -109,27 +114,20 @@ logging:
     com.helloworld.onlineshopping: debug
     com.baomidou.mybatisplus: debug
 
-# OSS Configuration
-oss:
-  endpoint: http://localhost:9000
-  bucket: test-bucket
-  access-key: testuser
-  secret-key: testpass
-  cdn-domain: ""  # 本地测试不用 CDN
-
 # File Upload Configuration
-#file:
-#  upload:
-#    max-size: 10MB
-#    allowed-types: image/jpeg,image/png,image/gif,image/webp
-#    temp-dir: ${TEMP_DIR:/tmp/uploads}
-#    cleanup-interval: 3600000  # 1 hour in milliseconds
 file:
   upload:
-    max-size: 10MB
+    base-dir: ${FILE_UPLOAD_BASE_DIR:D:/Java_pro/shopping_sys/online-shopping/uploads/images}
+    public-url: ${FILE_UPLOAD_PUBLIC_URL:/cdn/images/}
+    max-size: ${FILE_UPLOAD_MAX_SIZE:10MB}
     allowed-types: image/jpeg,image/png,image/gif,image/webp
-    temp-dir: ./tmp/uploads  # 使用项目本地目录，方便查看
-    cleanup-interval: 60000  # 1 分钟清理一次临时文件，测试方便
+    temp-dir: ${FILE_UPLOAD_TEMP_DIR:./tmp/uploads}
+    cleanup-interval: ${FILE_UPLOAD_CLEANUP_INTERVAL:60000}
+    main-image:
+      force-spec: ${FILE_MAIN_IMAGE_FORCE_SPEC:true}
+      width: ${FILE_MAIN_IMAGE_WIDTH:800}
+      height: ${FILE_MAIN_IMAGE_HEIGHT:800}
+      quality: ${FILE_MAIN_IMAGE_QUALITY:0.85}
 
 order:
   timeout:

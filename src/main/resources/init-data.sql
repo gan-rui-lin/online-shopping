@@ -242,3 +242,11 @@ INSERT IGNORE INTO cart_item (id, user_id, sku_id, quantity, checked) VALUES
 (101, 100, 2014, 1, 1),
 -- buyer2: Introduction to Algorithms CLRS Hardcover x1
 (102, 101, 2025, 1, 1);
+
+
+
+-- =============================================
+-- file_test: for testing file upload functionality
+-- =============================================
+INSERT INTO product_image (spu_id, image_url, image_type)
+VALUES (1002, '/cdn/images/AirPods Pro 2.jpg', 1);

@@ -26,11 +26,26 @@ public class ImageProcessor {
     }
 
     /**
+     * Normalize main image to fixed size for stable product card rendering.
+     */
+    public static byte[] normalizeMainImage(byte[] imageData, int width, int height, float quality) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        Thumbnails.of(new ByteArrayInputStream(imageData))
+                .size(width, height)
+                .crop(Positions.CENTER)
+                .outputQuality(quality)
+                .outputFormat("jpg")
+                .toOutputStream(outputStream);
+        return outputStream.toByteArray();
+    }
+
+    /**
      * Add configurable watermark
      */
     public static byte[] addWatermark(byte[] imageData, String watermarkText, String position, float opacity, int fontSize) throws IOException {
         BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageData));
         BufferedImage watermarkedImage = Thumbnails.of(originalImage)
+                .scale(1.0)
                 .watermark(getPosition(position), createWatermark(watermarkText, fontSize), opacity)
                 .asBufferedImage();
 

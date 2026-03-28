@@ -62,3 +62,7 @@ frontend/.vscode/
 
 # xk specific
 *_xk.*
+
+
+#User uploaded images
+uploads/images

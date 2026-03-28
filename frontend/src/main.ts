@@ -10,6 +10,8 @@ import './assets/styles/global.scss'
 import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'
 import i18n from './i18n'
+import { resolveImageUrl } from './utils/image';
+resolveImageUrl('/cdn/images/AirPods Pro 2.jpg')
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -27,5 +29,5 @@ localeStore.initLocale()
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
-
+console.log(resolveImageUrl('/cdn/images/AirPods Pro 2.jpg'));
 app.mount('#app')

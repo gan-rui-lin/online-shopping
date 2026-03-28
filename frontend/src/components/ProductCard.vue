@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ProductSimpleVO } from '@/types/product'
+import { resolveImageUrl } from '@/utils/image'
 import PriceDisplay from './PriceDisplay.vue'
 
 const props = defineProps<{
@@ -17,6 +18,8 @@ const displayPrice = computed(() => {
   return props.product.minPrice
 })
 
+const imageUrl = computed(() => resolveImageUrl(props.product.mainImage))
+
 function goDetail() {
   router.push(`/products/${props.product.spuId}`)
 }
@@ -25,7 +28,7 @@ function goDetail() {
 <template>
   <div class="product-card" @click="goDetail">
     <div class="product-image">
-      <el-image :src="product.mainImage" fit="cover" lazy>
+      <el-image :src="imageUrl" fit="cover" lazy>
         <template #error>
           <div class="image-placeholder">
             <el-icon :size="32"><Picture /></el-icon>
