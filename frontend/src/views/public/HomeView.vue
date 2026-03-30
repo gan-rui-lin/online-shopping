@@ -3,14 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ArrowRight, Picture } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 import { getCategoryTree } from '@/api/category'
 import { getHotProducts, getPersonalProducts, type RecommendProductVO } from '@/api/recommend'
 import type { CategoryVO, ProductSimpleVO } from '@/types/product'
 import ProductCard from '@/components/ProductCard.vue'
-import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const userStore = useUserStore()
 
 const categories = ref<CategoryVO[]>([])

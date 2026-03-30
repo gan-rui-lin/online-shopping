@@ -56,7 +56,39 @@ All configurable variables:
 | `REDIS_PASSWORD` | *(empty)* | Redis password |
 | `APP_SEARCH_ES_ENABLED` | `true` | Enable Elasticsearch search |
 | `ES_URIS` | `http://127.0.0.1:9200` | Elasticsearch endpoint |
+| `APP_AI_ENABLED` | `false` | Enable external AI gateway |
+| `APP_AI_BASE_URL` | `https://openrouter.ai/api/v1/chat/completions` | OpenAI-compatible API URL |
+| `APP_AI_API_KEY` | *(empty)* | AI API key |
+| `APP_AI_MODEL` | `deepseek/deepseek-chat-v3-0324:free` | Model name |
+| `FILE_UPLOAD_BASE_DIR` | `./uploads/images` | Local directory for uploaded image files (can be overridden per machine) |
+| `FILE_UPLOAD_PUBLIC_URL` | `/cdn/images/` | Public URL prefix mapped to local image directory |
 | `JWT_SECRET` | *(built-in default)* | JWT signing key (Base64) |
+
+### Important: Configure Image Storage Path Per Machine
+
+Image files are stored on local disk, while the database only stores image URLs and bindings.
+
+Default uses a project-relative path (`./uploads/images`) and works across platforms.
+
+For production or custom deployments, set `FILE_UPLOAD_BASE_DIR` to a machine-specific absolute path.
+
+Linux/macOS example:
+
+```bash
+export FILE_UPLOAD_BASE_DIR=/opt/online-shopping/uploads/images
+```
+
+Windows PowerShell example:
+
+```powershell
+$env:FILE_UPLOAD_BASE_DIR="D:\\online-shopping\\uploads\\images"
+```
+
+Then start the backend normally:
+
+```bash
+./mvnw spring-boot:run
+```
 
 ### 4. Run
 
@@ -101,6 +133,21 @@ If your local MySQL allows empty password, you can bypass DB password pre-check:
 
 ```powershell
 ./scripts/start-es-and-backend.ps1 -SkipDbCredentialCheck
+```
+
+### Windows: Reset and re-seed database (destructive)
+
+This command will drop and recreate the `online_shopping` database, then run `schema.sql` and `init-data.sql`.
+
+```powershell
+./scripts/reset-and-init-db.ps1 -DbPassword "your_mysql_password"
+```
+
+You can also use environment variable:
+
+```powershell
+$env:DB_PASSWORD="your_mysql_password"
+./scripts/reset-and-init-db.ps1
 ```
 
 ### 5. API Documentation

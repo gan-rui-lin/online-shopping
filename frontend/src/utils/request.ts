@@ -6,7 +6,7 @@ import type { ApiResult } from '@/types/common'
 
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  timeout: 15000,
+  timeout: 60000,
 })
 
 service.interceptors.request.use(
@@ -31,6 +31,10 @@ service.interceptors.response.use(
     return Promise.reject(new Error(res.message || 'Request failed'))
   },
   (error) => {
+    if (error.code === 'ECONNABORTED' || String(error.message || '').toLowerCase().includes('timeout')) {
+      ElMessage.error('Request timeout, please try again')
+      return Promise.reject(error)
+    }
     if (error.response?.status === 401) {
       removeToken()
       router.push('/login')

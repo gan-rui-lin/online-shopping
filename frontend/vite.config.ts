@@ -21,12 +21,49 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'element-plus': ['element-plus', '@element-plus/icons-vue'],
-          vue: ['vue', 'vue-router', 'pinia'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return
+          }
+
+          if (id.includes('@element-plus/icons-vue')) {
+            return 'vendor-element-icons'
+          }
+          if (id.includes('element-plus/es/') || id.includes('element-plus/lib/')) {
+            return 'vendor-element-plus'
+          }
+          if (id.includes('vue-router')) {
+            return 'vendor-vue-router'
+          }
+          if (id.includes('pinia')) {
+            return 'vendor-pinia'
+          }
+          if (id.includes('vue-i18n')) {
+            return 'vendor-i18n'
+          }
+          if (id.includes('axios')) {
+            return 'vendor-axios'
+          }
+          if (id.includes('dayjs')) {
+            return 'vendor-dayjs'
+          }
+          if (id.includes('/vue/')) {
+            return 'vendor-vue-core'
+          }
+
+          return 'vendor-misc'
         },
+      },
+    },
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        silenceDeprecations: ['legacy-js-api'],
+        quietDeps: true,
       },
     },
   },

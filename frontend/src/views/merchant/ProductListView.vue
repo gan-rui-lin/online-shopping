@@ -1,3 +1,4 @@
+            <el-image :src="row.mainImage" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -7,8 +8,8 @@ import { getMyProducts, onShelfProduct, offShelfProduct, deleteProduct } from '@
 import type { ProductSimpleVO } from '@/types/product'
 import { ProductStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
+import { resolveImageUrl } from '@/utils/image'
 import { getProductStatusLabel } from '@/utils/i18nStatus'
-
 const router = useRouter()
 const list = ref<ProductSimpleVO[]>([])
 const total = ref(0)
@@ -81,7 +82,7 @@ onMounted(fetchProducts)
       <el-table v-loading="loading" :data="list" stripe>
         <el-table-column :label="t('merchant.image')" width="80">
           <template #default="{ row }">
-            <el-image :src="row.mainImage" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
+            <el-image :src="resolveImageUrl(row.mainImage)" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
               <template #error><div style="width: 48px; height: 48px; background: #f5f7fa; display: flex; align-items: center; justify-content: center;"><el-icon><Picture /></el-icon></div></template>
             </el-image>
           </template>

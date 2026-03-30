@@ -31,4 +31,10 @@ public class AuthController {
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return Result.success(authService.login(dto));
     }
+
+    @Operation(summary = "Logout")
+    @PostMapping("/logout")
+    public Result<Void> logout() {
+        return Result.success();
+    }
 }

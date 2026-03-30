@@ -2,10 +2,15 @@ server:
   port: 8080
 
 spring:
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: ${SPRING_RABBITMQ_LISTENER_AUTO_STARTUP:false}
+
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/online_shopping?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:123123}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5
@@ -33,11 +38,24 @@ spring:
 
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
+    username: ${ES_USERNAME:elastic}
+    password: ${ES_PASSWORD:}
+
+  servlet:
+    multipart:
+      max-file-size: ${FILE_UPLOAD_MAX_SIZE:10MB}
+      max-request-size: ${FILE_UPLOAD_MAX_REQUEST_SIZE:50MB}
 
 app:
   search:
     es:
       enabled: ${APP_SEARCH_ES_ENABLED:true}
+  ai:
+    enabled: ${APP_AI_ENABLED:false}
+    base-url: ${APP_AI_BASE_URL:https://openrouter.ai/api/v1/chat/completions}
+    api-key: ${APP_AI_API_KEY:}
+    model: ${APP_AI_MODEL:deepseek/deepseek-chat-v3-0324:free}
+    timeout-ms: ${APP_AI_TIMEOUT_MS:20000}
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
@@ -95,6 +113,21 @@ logging:
   level:
     com.helloworld.onlineshopping: debug
     com.baomidou.mybatisplus: debug
+
+# File Upload Configuration
+file:
+  upload:
+    base-dir: ${FILE_UPLOAD_BASE_DIR:./uploads/images}
+    public-url: ${FILE_UPLOAD_PUBLIC_URL:/cdn/images/}
+    max-size: ${FILE_UPLOAD_MAX_SIZE:10MB}
+    allowed-types: image/jpeg,image/png,image/gif,image/webp
+    temp-dir: ${FILE_UPLOAD_TEMP_DIR:./tmp/uploads}
+    cleanup-interval: ${FILE_UPLOAD_CLEANUP_INTERVAL:60000}
+    main-image:
+      force-spec: ${FILE_MAIN_IMAGE_FORCE_SPEC:true}
+      width: ${FILE_MAIN_IMAGE_WIDTH:800}
+      height: ${FILE_MAIN_IMAGE_HEIGHT:800}
+      quality: ${FILE_MAIN_IMAGE_QUALITY:0.85}
 
 order:
   timeout:

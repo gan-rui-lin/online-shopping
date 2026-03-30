@@ -14,6 +14,16 @@ export interface ReviewSummaryVO {
   summary: string
 }
 
+export interface ProductEvaluationVO {
+  spuId: number
+  overallLevel: string
+  qualityScore: number
+  valueScore: number
+  scenarioFit: string
+  potentialRisks: string[]
+  summary: string
+}
+
 export interface AgentRecommendationVO {
   spuId: number
   skuId: number
@@ -24,12 +34,24 @@ export interface AgentRecommendationVO {
 }
 
 export interface AgentTaskVO {
-  taskId: number
+  taskId: string
   taskType: string
   taskStatus: number
   userPrompt: string
   createTime: string
   recommendations: AgentRecommendationVO[]
+}
+
+export interface AgentTaskCreateDTO {
+  taskType: 'NECESSITY' | 'INTENTION'
+  requiredCategoryId?: number
+  requiredCategoryName?: string
+  frequency?: string
+  bindSpuId?: number
+  quantity?: number
+  intentRequirement?: string
+  preference?: string
+  budgetLimit?: number
 }
 
 export interface RagAnswerVO {

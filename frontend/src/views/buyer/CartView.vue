@@ -1,3 +1,4 @@
+            <el-image :src="item.mainImage" fit="cover" class="item-image">
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -8,8 +9,8 @@ import { submitOrder } from '@/api/order'
 import { getAddressList } from '@/api/address'
 import type { AddressVO } from '@/types/address'
 import PriceDisplay from '@/components/PriceDisplay.vue'
+import { resolveImageUrl } from '@/utils/image'
 import { formatSpec } from '@/utils/format'
-
 const router = useRouter()
 const cartStore = useCartStore()
 const addresses = ref<AddressVO[]>([])
@@ -106,7 +107,7 @@ onMounted(() => {
             />
           </div>
           <div class="col-product">
-            <el-image :src="item.mainImage" fit="cover" class="item-image">
+            <el-image :src="resolveImageUrl(item.mainImage)" fit="cover" class="item-image">
               <template #error>
                 <div class="img-fallback"><el-icon><Picture /></el-icon></div>
               </template>

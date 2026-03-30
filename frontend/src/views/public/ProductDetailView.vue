@@ -13,6 +13,7 @@ import ProductCard from '@/components/ProductCard.vue'
 import type { ProductDetailVO, ProductSkuVO, ProductSimpleVO } from '@/types/product'
 import type { ReviewVO, ReviewStatisticVO } from '@/types/review'
 import { formatDate, formatSpec } from '@/utils/format'
+import { resolveImageUrl, resolveImageUrls } from '@/utils/image'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,6 +45,19 @@ const imageList = computed(() => {
   }
   return images.length ? images : (product.value.mainImage ? [product.value.mainImage] : [])
 })
+
+const displayImages = computed(() => imageList.value.map((img) => ({
+  raw: img,
+  src: resolveImageUrl(img),
+})))
+
+const previewImages = computed(() => displayImages.value.map((img) => img.src))
+
+const currentImageResolved = computed(() => resolveImageUrl(currentImage.value))
+
+function resolveReviewImages(urls?: string[]) {
+  return resolveImageUrls(urls)
+}
 
 function selectSku(sku: ProductSkuVO) {
   selectedSku.value = sku
@@ -133,7 +147,7 @@ onMounted(async () => {
       <div class="detail-top card-box">
         <div class="gallery">
           <div class="main-image">
-            <el-image :src="currentImage" fit="contain" :preview-src-list="imageList">
+            <el-image :src="currentImageResolved" fit="contain" :preview-src-list="previewImages">
               <template #error>
                 <div class="image-placeholder">
                   <el-icon :size="48"><Picture /></el-icon>
@@ -141,15 +155,15 @@ onMounted(async () => {
               </template>
             </el-image>
           </div>
-          <div v-if="imageList.length > 1" class="thumbnail-list">
+          <div v-if="displayImages.length > 1" class="thumbnail-list">
             <div
-              v-for="(img, idx) in imageList"
+              v-for="(img, idx) in displayImages"
               :key="idx"
               class="thumbnail"
-              :class="{ active: currentImage === img }"
-              @click="currentImage = img"
+              :class="{ active: currentImage === img.raw }"
+              @click="currentImage = img.raw"
             >
-              <el-image :src="img" fit="cover" />
+              <el-image :src="img.src" fit="cover" />
             </div>
           </div>
         </div>
@@ -254,10 +268,10 @@ onMounted(async () => {
                   <p class="review-text">{{ review.content }}</p>
                   <div v-if="review.imageUrls?.length" class="review-images">
                     <el-image
-                      v-for="(img, idx) in review.imageUrls"
+                      v-for="(img, idx) in resolveReviewImages(review.imageUrls)"
                       :key="idx"
                       :src="img"
-                      :preview-src-list="review.imageUrls"
+                      :preview-src-list="resolveReviewImages(review.imageUrls)"
                       fit="cover"
                       class="review-img"
                     />

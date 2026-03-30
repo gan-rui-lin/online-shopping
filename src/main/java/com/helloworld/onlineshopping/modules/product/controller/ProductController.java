@@ -3,6 +3,7 @@ package com.helloworld.onlineshopping.modules.product.controller;
 import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.common.api.Result;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
+import com.helloworld.onlineshopping.modules.product.dto.ProductImageBindDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSpuCreateDTO;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSpuUpdateDTO;
 import com.helloworld.onlineshopping.modules.product.service.ProductService;
@@ -64,6 +65,14 @@ public class ProductController {
     @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
     public Result<Void> update(@PathVariable Long spuId, @Valid @RequestBody ProductSpuUpdateDTO dto) {
         productService.updateProduct(spuId, dto);
+        return Result.success();
+    }
+
+    @Operation(summary = "Bind product images (merchant)")
+    @PutMapping("/{spuId}/images")
+    @PreAuthorize("hasAuthority('ROLE_MERCHANT')")
+    public Result<Void> bindImages(@PathVariable Long spuId, @Valid @RequestBody ProductImageBindDTO dto) {
+        productService.bindProductImages(spuId, dto);
         return Result.success();
     }
 
