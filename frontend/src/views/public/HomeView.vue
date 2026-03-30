@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ArrowRight, Picture } from '@element-plus/icons-vue'
 import { getCategoryTree } from '@/api/category'
 import { getHotProducts, getPersonalProducts, type RecommendProductVO } from '@/api/recommend'
 import type { CategoryVO, ProductSimpleVO } from '@/types/product'
@@ -17,17 +18,39 @@ const hotProducts = ref<RecommendProductVO[]>([])
 const personalProducts = ref<RecommendProductVO[]>([])
 const loading = ref(true)
 
-const heroKeywords = computed(() => {
+interface HeroKeywordItem {
+  full: string
+  display: string
+}
+
+function truncateText(text: string, maxLength = 12) {
+  return text.length > maxLength ? text.substring(0, maxLength) + '…' : text
+}
+
+const heroKeywords = computed<HeroKeywordItem[]>(() => {
   if (hotProducts.value.length > 0) {
     return hotProducts.value
       .slice(0, 5)
       .map((p) => {
-        const title = p.title || ''
-        return title.length > 12 ? title.substring(0, 12) + '…' : title
+        const full = (p.title || '').trim()
+        return {
+          full,
+          display: truncateText(full, 12),
+        }
       })
-      .filter((t) => t.length > 0)
+      .filter((item) => item.full.length > 0)
   }
-  return categories.value.slice(0, 5).map((c) => c.categoryName)
+
+  return categories.value
+    .slice(0, 5)
+    .map((c) => {
+      const full = (c.categoryName || '').trim()
+      return {
+        full,
+        display: truncateText(full, 12),
+      }
+    })
+    .filter((item) => item.full.length > 0)
 })
 
 const guessLikeProducts = computed(() => {
@@ -55,24 +78,30 @@ function toProduct(item: RecommendProductVO): ProductSimpleVO {
 }
 
 function toCategory(id?: number) {
-  router.push({ path: '/products', query: id ? { categoryId: String(id) } : undefined })
+  router.push({
+    path: '/products',
+    query: id ? { categoryId: String(id) } : undefined,
+  })
 }
 
 function searchKeyword(keyword: string) {
-  router.push({ path: '/products', query: { keyword } })
+  const fullKeyword = keyword.trim()
+  if (!fullKeyword) return
+  router.push({ path: '/products', query: { keyword: fullKeyword } })
 }
 
 onMounted(async () => {
   try {
     const fetchPersonal = userStore.isLoggedIn
-      ? getPersonalProducts(12).catch(() => [])
+      ? getPersonalProducts(12).catch(() => [] as RecommendProductVO[])
       : Promise.resolve([] as RecommendProductVO[])
 
     const [catRes, hotRes, personalRes] = await Promise.all([
-      getCategoryTree().catch(() => []),
-      getHotProducts(12).catch(() => []),
+      getCategoryTree().catch(() => [] as CategoryVO[]),
+      getHotProducts(12).catch(() => [] as RecommendProductVO[]),
       fetchPersonal,
     ])
+
     categories.value = catRes
     hotProducts.value = hotRes
     personalProducts.value = personalRes
@@ -100,18 +129,27 @@ onMounted(async () => {
           <div class="hero-banner">
             <h1>{{ t('home.heroTitle') }}</h1>
             <p>{{ t('home.heroDesc') }}</p>
+
             <div class="keyword-line">
               <span
-                v-for="key in heroKeywords"
-                :key="key"
+                v-for="(item, index) in heroKeywords"
+                :key="`${item.full}-${index}`"
                 class="keyword-tag"
-                @click.stop="searchKeyword(key)"
-              >{{ key }}</span>
+                :title="item.full"
+                @click.stop="searchKeyword(item.full)"
+              >
+                {{ item.display }}
+              </span>
             </div>
+
             <div class="cta-row">
-              <el-button type="primary" size="large" @click="toCategory()">{{ t('home.shopNow') }}</el-button>
+              <el-button type="primary" size="large" @click="toCategory()">
+                {{ t('home.shopNow') }}
+              </el-button>
               <router-link to="/buyer/intelligence">
-                <el-button size="large" plain>{{ t('home.intelligenceCenter') }}</el-button>
+                <el-button size="large" plain>
+                  {{ t('home.intelligenceCenter') }}
+                </el-button>
               </router-link>
             </div>
           </div>
@@ -127,13 +165,18 @@ onMounted(async () => {
                   @click.stop="router.push(`/products/${item.spuId}`)"
                 >
                   <el-image :src="item.mainImage" fit="cover" lazy>
-                    <template #error><div class="mini-placeholder"><el-icon><Picture /></el-icon></div></template>
+                    <template #error>
+                      <div class="mini-placeholder">
+                        <el-icon><Picture /></el-icon>
+                      </div>
+                    </template>
                   </el-image>
                   <span class="mini-price">¥{{ item.minPrice }}</span>
                 </div>
               </div>
               <p v-else class="empty-hint">{{ t('home.guessLikeDesc') }}</p>
             </article>
+
             <article class="small-card clickable" @click="router.push('/products')">
               <h4>{{ t('home.hotProducts') }}</h4>
               <div v-if="trendingProducts.length" class="mini-products">
@@ -144,7 +187,11 @@ onMounted(async () => {
                   @click.stop="router.push(`/products/${item.spuId}`)"
                 >
                   <el-image :src="item.mainImage" fit="cover" lazy>
-                    <template #error><div class="mini-placeholder"><el-icon><Picture /></el-icon></div></template>
+                    <template #error>
+                      <div class="mini-placeholder">
+                        <el-icon><Picture /></el-icon>
+                      </div>
+                    </template>
                   </el-image>
                   <span class="mini-price">¥{{ item.minPrice }}</span>
                 </div>
@@ -156,10 +203,18 @@ onMounted(async () => {
 
         <aside class="user-panel float-hover">
           <h3>{{ t('home.quickEntry') }}</h3>
-          <router-link to="/buyer/orders"><el-button text>{{ t('publicLayout.orders') }}</el-button></router-link>
-          <router-link to="/buyer/cart"><el-button text>{{ t('common.cart') }}</el-button></router-link>
-          <router-link to="/buyer/intelligence"><el-button text>{{ t('publicLayout.aiHub') }}</el-button></router-link>
-          <router-link to="/buyer/merchant-apply"><el-button text>{{ t('home.merchantApply') }}</el-button></router-link>
+          <router-link to="/buyer/orders">
+            <el-button text>{{ t('publicLayout.orders') }}</el-button>
+          </router-link>
+          <router-link to="/buyer/cart">
+            <el-button text>{{ t('common.cart') }}</el-button>
+          </router-link>
+          <router-link to="/buyer/intelligence">
+            <el-button text>{{ t('publicLayout.aiHub') }}</el-button>
+          </router-link>
+          <router-link to="/buyer/merchant-apply">
+            <el-button text>{{ t('home.merchantApply') }}</el-button>
+          </router-link>
         </aside>
       </section>
 
@@ -169,7 +224,12 @@ onMounted(async () => {
           <router-link to="/products">{{ t('home.viewMore') }}</router-link>
         </div>
         <div v-loading="loading" class="product-grid">
-          <ProductCard v-for="item in hotProducts" :key="item.spuId" :product="toProduct(item)" class="float-hover" />
+          <ProductCard
+            v-for="item in hotProducts"
+            :key="item.spuId"
+            :product="toProduct(item)"
+            class="float-hover"
+          />
         </div>
       </section>
 
@@ -179,7 +239,12 @@ onMounted(async () => {
           <router-link to="/products">{{ t('home.viewMore') }}</router-link>
         </div>
         <div class="product-grid">
-          <ProductCard v-for="item in personalProducts" :key="`p-${item.spuId}`" :product="toProduct(item)" class="float-hover" />
+          <ProductCard
+            v-for="item in personalProducts"
+            :key="`p-${item.spuId}`"
+            :product="toProduct(item)"
+            class="float-hover"
+          />
         </div>
       </section>
     </div>
@@ -264,8 +329,12 @@ onMounted(async () => {
 }
 
 @keyframes bg-flow {
-  from { background-position: 0% 50%; }
-  to { background-position: 100% 50%; }
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
 }
 
 .keyword-line {
