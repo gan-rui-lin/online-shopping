@@ -117,7 +117,7 @@ logging:
 # File Upload Configuration
 file:
   upload:
-    base-dir: ${FILE_UPLOAD_BASE_DIR:D:/Java_pro/shopping_sys/online-shopping/uploads/images}
+    base-dir: ${FILE_UPLOAD_BASE_DIR:./uploads/images}
     public-url: ${FILE_UPLOAD_PUBLIC_URL:/cdn/images/}
     max-size: ${FILE_UPLOAD_MAX_SIZE:10MB}
     allowed-types: image/jpeg,image/png,image/gif,image/webp

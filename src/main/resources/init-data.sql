@@ -45,25 +45,45 @@ INSERT IGNORE INTO merchant_shop (id, user_id, shop_name, shop_desc, shop_status
 -- =============================================
 
 -- David's Electronics (shop_id=100)
-INSERT IGNORE INTO product_spu (id, shop_id, category_id, brand_name, title, sub_title, status, audit_status, min_price, max_price, sales_count, browse_count, favorite_count, like_count) VALUES
-(1000, 100, 6,  'Apple',   'iPhone 15 Pro Max',       'Titanium. A17 Pro chip. Action button.',     1, 1, 1199.00, 1599.00, 320, 5800, 210, 450),
-(1001, 100, 7,  'Apple',   'MacBook Pro 14 M3',       'Supercharged by M3 Pro or M3 Max.',          1, 1, 1999.00, 2999.00, 180, 4200, 150, 320),
-(1002, 100, 8,  'Apple',   'AirPods Pro 2',           'Adaptive Audio. USB-C charging.',             1, 1,  249.00,  249.00, 560, 8200, 380, 620),
-(1003, 100, 6,  'Samsung', 'Samsung Galaxy S24 Ultra', 'Galaxy AI. Titanium frame. S Pen built-in.', 1, 1, 1299.00, 1419.00, 240, 3900, 130, 280);
+INSERT IGNORE INTO product_spu (id, shop_id, category_id, brand_name, title, sub_title, main_image, status, audit_status, min_price, max_price, sales_count, browse_count, favorite_count, like_count) VALUES
+(1000, 100, 6,  'Apple',   'iPhone 15 Pro Max',       'Titanium. A17 Pro chip. Action button.',      '/cdn/images/9d950947-710e-4e14-8092-7c880689d50c.jpg', 1, 1, 1199.00, 1599.00, 320, 5800, 210, 450),
+(1001, 100, 7,  'Apple',   'MacBook Pro 14 M3',       'Supercharged by M3 Pro or M3 Max.',           '/cdn/images/61lsexTCOhL._AC_SX522_.jpg',               1, 1, 1999.00, 2999.00, 180, 4200, 150, 320),
+(1002, 100, 8,  'Apple',   'AirPods Pro 2',           'Adaptive Audio. USB-C charging.',              '/cdn/images/AirPods Pro 2.jpg',                        1, 1,  249.00,  249.00, 560, 8200, 380, 620),
+(1003, 100, 6,  'Samsung', 'Samsung Galaxy S24 Ultra', 'Galaxy AI. Titanium frame. S Pen built-in.',  '/cdn/images/6586b984552059045.jpg_e1080.jpg',          1, 1, 1299.00, 1419.00, 240, 3900, 130, 280);
 
 -- Emily's Fashion (shop_id=101)
-INSERT IGNORE INTO product_spu (id, shop_id, category_id, brand_name, title, sub_title, status, audit_status, min_price, max_price, sales_count, browse_count, favorite_count, like_count) VALUES
-(1004, 101, 9,  NULL, 'Classic Wool Overcoat', 'Warm and elegant for autumn and winter.',          1, 1, 189.00, 199.00,  95, 1800,  55, 110),
-(1005, 101, 10, NULL, 'Silk Evening Dress',    'Luxurious silk, perfect for formal occasions.',    1, 1, 299.00, 319.00,  72, 2100,  65, 130),
-(1006, 101, 9,  NULL, 'Casual Denim Jacket',   'Classic denim, versatile and durable.',            1, 1,  89.00,  89.00, 210, 3400, 120, 250),
-(1007, 101, 10, NULL, 'Cashmere Sweater',      'Soft 100% cashmere, lightweight and cozy.',        1, 1, 159.00, 159.00, 130, 2500,  90, 180);
+INSERT IGNORE INTO product_spu (id, shop_id, category_id, brand_name, title, sub_title, main_image, status, audit_status, min_price, max_price, sales_count, browse_count, favorite_count, like_count) VALUES
+(1004, 101, 9,  NULL, 'Classic Wool Overcoat', 'Warm and elegant for autumn and winter.',           '/cdn/images/OIP-C.jpg',                                1, 1, 189.00, 199.00,  95, 1800,  55, 110),
+(1005, 101, 10, NULL, 'Silk Evening Dress',    'Luxurious silk, perfect for formal occasions.',     '/cdn/images/IrisSwarovskiSilkEveningDress-8_1024x.jpg',1, 1, 299.00, 319.00,  72, 2100,  65, 130),
+(1006, 101, 9,  NULL, 'Casual Denim Jacket',   'Classic denim, versatile and durable.',             '/cdn/images/denimJacket.jpg',                          1, 1,  89.00,  89.00, 210, 3400, 120, 250),
+(1007, 101, 10, NULL, 'Cashmere Sweater',      'Soft 100% cashmere, lightweight and cozy.',         '/cdn/images/best-cashmere-sweaters.jpg',               1, 1, 159.00, 159.00, 130, 2500,  90, 180);
 
 -- Frank's Books (shop_id=102)
-INSERT IGNORE INTO product_spu (id, shop_id, category_id, brand_name, title, sub_title, status, audit_status, min_price, max_price, sales_count, browse_count, favorite_count, like_count) VALUES
-(1008, 102, 4, NULL, 'Clean Code',                       'A Handbook of Agile Software Craftsmanship by Robert C. Martin.', 1, 1,  35.00,  55.00, 420, 6100, 280, 510),
-(1009, 102, 4, NULL, 'Design Patterns GoF',              'Elements of Reusable Object-Oriented Software.',                  1, 1,  42.00,  65.00, 310, 4500, 200, 380),
-(1010, 102, 4, NULL, 'The Art of War',                   'Sun Tzu''s timeless classic on strategy.',                         1, 1,  12.00,  28.00, 580, 7200, 350, 600),
-(1011, 102, 4, NULL, 'Introduction to Algorithms CLRS',  'The comprehensive guide to algorithms by Cormen et al.',           1, 1,  70.00,  95.00, 190, 3800, 140, 260);
+INSERT IGNORE INTO product_spu (id, shop_id, category_id, brand_name, title, sub_title, main_image, status, audit_status, min_price, max_price, sales_count, browse_count, favorite_count, like_count) VALUES
+(1008, 102, 4, NULL, 'Clean Code',                       'A Handbook of Agile Software Craftsmanship by Robert C. Martin.', '/cdn/images/59c22690N479e81.jpg',      1, 1,  35.00,  55.00, 420, 6100, 280, 510),
+(1009, 102, 4, NULL, 'Design Patterns GoF',              'Elements of Reusable Object-Oriented Software.',                  '/cdn/images/My-project-1-26.png',       1, 1,  42.00,  65.00, 310, 4500, 200, 380),
+(1010, 102, 4, NULL, 'The Art of War',                   'Sun Tzu''s timeless classic on strategy.',                         '/cdn/images/artofwar.jpg',               1, 1,  12.00,  28.00, 580, 7200, 350, 600),
+(1011, 102, 4, NULL, 'Introduction to Algorithms CLRS',  'The comprehensive guide to algorithms by Cormen et al.',           '/cdn/images/61Mw06x2XcL._SL1500_.jpg',   1, 1,  70.00,  95.00, 190, 3800, 140, 260);
+
+-- Backfill main_image for existing rows (INSERT IGNORE does not update existing records)
+UPDATE product_spu
+SET main_image = CASE id
+		WHEN 1000 THEN '/cdn/images/9d950947-710e-4e14-8092-7c880689d50c.jpg'
+		WHEN 1001 THEN '/cdn/images/61lsexTCOhL._AC_SX522_.jpg'
+		WHEN 1002 THEN '/cdn/images/AirPods Pro 2.jpg'
+		WHEN 1003 THEN '/cdn/images/6586b984552059045.jpg_e1080.jpg'
+		WHEN 1004 THEN '/cdn/images/OIP-C.jpg'
+		WHEN 1005 THEN '/cdn/images/IrisSwarovskiSilkEveningDress-8_1024x.jpg'
+		WHEN 1006 THEN '/cdn/images/denimJacket.jpg'
+		WHEN 1007 THEN '/cdn/images/best-cashmere-sweaters.jpg'
+		WHEN 1008 THEN '/cdn/images/59c22690N479e81.jpg'
+		WHEN 1009 THEN '/cdn/images/My-project-1-26.png'
+		WHEN 1010 THEN '/cdn/images/artofwar.jpg'
+		WHEN 1011 THEN '/cdn/images/61Mw06x2XcL._SL1500_.jpg'
+		ELSE main_image
+END
+WHERE id BETWEEN 1000 AND 1011
+	AND (main_image IS NULL OR TRIM(main_image) = '');
 
 -- =============================================
 -- 3b. Products — SKU (26 SKUs)
@@ -246,7 +266,18 @@ INSERT IGNORE INTO cart_item (id, user_id, sku_id, quantity, checked) VALUES
 
 
 -- =============================================
--- file_test: for testing file upload functionality
+-- 9. Product images (idempotent seed data)
 -- =============================================
-INSERT INTO product_image (spu_id, image_url, image_type)
-VALUES (1002, '/cdn/images/AirPods Pro 2.jpg', 1);
+INSERT IGNORE INTO product_image (id, spu_id, sku_id, image_url, image_type, sort_order, create_time) VALUES
+(3000, 1000, NULL, '/cdn/images/9d950947-710e-4e14-8092-7c880689d50c.jpg', 1, 0, '2026-03-27 15:58:15'),
+(3001, 1001, NULL, '/cdn/images/61lsexTCOhL._AC_SX522_.jpg',                1, 0, '2026-03-27 16:25:45'),
+(3002, 1002, NULL, '/cdn/images/AirPods Pro 2.jpg',                          1, 0, '2026-03-24 17:17:38'),
+(3003, 1003, NULL, '/cdn/images/6586b984552059045.jpg_e1080.jpg',           1, 0, '2026-03-27 16:27:38'),
+(3004, 1004, NULL, '/cdn/images/OIP-C.jpg',                                   1, 0, '2026-03-27 16:34:08'),
+(3005, 1005, NULL, '/cdn/images/IrisSwarovskiSilkEveningDress-8_1024x.jpg',  1, 0, '2026-03-27 20:59:36'),
+(3006, 1006, NULL, '/cdn/images/denimJacket.jpg',                             1, 0, '2026-03-27 21:01:35'),
+(3007, 1007, NULL, '/cdn/images/best-cashmere-sweaters.jpg',                  1, 0, '2026-03-27 21:02:59'),
+(3008, 1008, NULL, '/cdn/images/59c22690N479e81.jpg',                         1, 0, '2026-03-27 21:04:55'),
+(3009, 1009, NULL, '/cdn/images/My-project-1-26.png',                         1, 0, '2026-03-27 21:26:05'),
+(3010, 1010, NULL, '/cdn/images/artofwar.jpg',                                1, 0, '2026-03-27 16:21:36'),
+(3011, 1011, NULL, '/cdn/images/61Mw06x2XcL._SL1500_.jpg',                    1, 0, '2026-03-27 21:26:57');
