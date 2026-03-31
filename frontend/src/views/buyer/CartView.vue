@@ -1,4 +1,3 @@
-            <el-image :src="item.mainImage" fit="cover" class="item-image">
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'

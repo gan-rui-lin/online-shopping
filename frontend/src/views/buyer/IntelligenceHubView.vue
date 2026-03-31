@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { askRag } from '@/api/rag'
 import { createAgentTask, addAgentResultToCart } from '@/api/agent'
-import { generateDescription, generateSellingPoints, generateTitle, getProductEvaluation, getReviewSummary } from '@/api/ai'
+import { generateSellingPoints, getProductEvaluation, getReviewSummary } from '@/api/ai'
 import { getFavoriteList, toggleFavorite } from '@/api/favorite'
 import { clearBrowseHistory, getBrowseHistory } from '@/api/behavior'
 import { createShoppingPlan, executeShoppingPlan, getShoppingPlanList } from '@/api/plan'
@@ -49,8 +49,6 @@ const isNecessityMode = computed(() => agentTaskType.value === 'NECESSITY')
 const aiSpuId = ref<number | undefined>(undefined)
 const aiSelectedKey = ref('')
 const aiSourceType = ref<'favorite' | 'history'>('favorite')
-const aiTitleVariants = ref<string[]>([])
-const aiDescription = ref('')
 const aiSellingPoints = ref<string[]>([])
 const aiReviewSummary = ref<ReviewSummaryVO>()
 const aiEvaluation = ref<ProductEvaluationVO>()
@@ -354,15 +352,11 @@ async function runAiCopywriting() {
 
   loading.value = true
   try {
-    const [title, desc, selling, summary, evaluation] = await Promise.all([
-      generateTitle(aiSpuId.value).catch(() => ({ content: t('intelligence.needMerchant'), variants: [] })),
-      generateDescription({ keywords: autoKeywords }).catch(() => ({ content: t('intelligence.needMerchant'), variants: [] })),
+    const [selling, summary, evaluation] = await Promise.all([
       generateSellingPoints(aiSpuId.value).catch(() => ({ content: t('intelligence.needMerchant'), variants: [] })),
       getReviewSummary(aiSpuId.value).catch(() => undefined),
       getProductEvaluation(aiSpuId.value).catch(() => undefined),
     ])
-    aiTitleVariants.value = normalizeLines(title.content)
-    aiDescription.value = desc.content
     aiSellingPoints.value = normalizeLines(selling.content)
     aiReviewSummary.value = summary
     aiEvaluation.value = evaluation
@@ -596,31 +590,46 @@ onMounted(loadExtraPanels)
             <el-button type="primary" :loading="loading" @click="runAiCopywriting">{{ t('intelligence.generate') }}</el-button>
           </div>
 
-          <el-descriptions :column="1" border>
-            <el-descriptions-item :label="t('intelligence.titleLabel')">
-              <div v-if="aiTitleVariants.length" class="bullet-list">
-                <div v-for="(item, index) in aiTitleVariants" :key="index">{{ item }}</div>
-              </div>
-              <span v-else>—</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('intelligence.descriptionLabel')">{{ aiDescription || '—' }}</el-descriptions-item>
-            <el-descriptions-item :label="t('intelligence.sellingPointsLabel')">
+          <div class="ai-evaluation">
+            <div class="ai-panel">
+              <div class="panel-title">{{ t('intelligence.sellingPointsLabel') }}</div>
               <div v-if="aiSellingPoints.length" class="bullet-list">
                 <div v-for="(item, index) in aiSellingPoints" :key="index">{{ item }}</div>
               </div>
               <span v-else>—</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('intelligence.reviewSummaryLabel')">
+            </div>
+            <div class="ai-panel">
+              <div class="panel-title">{{ t('intelligence.reviewSummaryLabel') }}</div>
               <div v-if="aiReviewSummary?.summary" class="markdown-content" v-html="aiReviewSummaryHtml"></div>
               <span v-else>—</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="综合评级">{{ aiEvaluation?.overallLevel || '—' }}</el-descriptions-item>
-            <el-descriptions-item label="质量评分">{{ aiEvaluation?.qualityScore ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="性价比评分">{{ aiEvaluation?.valueScore ?? '—' }}</el-descriptions-item>
-            <el-descriptions-item label="适用场景">{{ aiEvaluation?.scenarioFit || '—' }}</el-descriptions-item>
-            <el-descriptions-item label="潜在风险">{{ aiEvaluation?.potentialRisks?.join('；') || '—' }}</el-descriptions-item>
-            <el-descriptions-item label="综合结论">{{ aiEvaluation?.summary || '—' }}</el-descriptions-item>
-          </el-descriptions>
+            </div>
+            <div class="ai-metrics">
+              <div class="metric-card">
+                <div class="metric-label">{{ t('intelligence.evaluationOverall') }}</div>
+                <div class="metric-value">{{ aiEvaluation?.overallLevel || '—' }}</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">{{ t('intelligence.qualityScore') }}</div>
+                <div class="metric-value">{{ aiEvaluation?.qualityScore ?? '—' }}</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">{{ t('intelligence.valueScore') }}</div>
+                <div class="metric-value">{{ aiEvaluation?.valueScore ?? '—' }}</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">{{ t('intelligence.scenarioFit') }}</div>
+                <div class="metric-value">{{ aiEvaluation?.scenarioFit || '—' }}</div>
+              </div>
+              <div class="metric-card wide">
+                <div class="metric-label">{{ t('intelligence.potentialRisks') }}</div>
+                <div class="metric-value">{{ aiEvaluation?.potentialRisks?.join('；') || '—' }}</div>
+              </div>
+              <div class="metric-card wide">
+                <div class="metric-label">{{ t('intelligence.evaluationSummary') }}</div>
+                <div class="metric-value">{{ aiEvaluation?.summary || '—' }}</div>
+              </div>
+            </div>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -823,6 +832,62 @@ onMounted(loadExtraPanels)
   display: flex;
   justify-content: flex-end;
   margin-bottom: 16px;
+}
+
+.ai-evaluation {
+  display: grid;
+  gap: 14px;
+}
+
+.ai-panel {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px;
+  background: linear-gradient(120deg, #fffaf5 0%, #fff5f0 100%);
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.ai-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  border-radius: 12px;
+  border: 1px solid #eef2f7;
+  padding: 12px;
+  background: #ffffff;
+  display: grid;
+  gap: 6px;
+}
+
+.metric-card.wide {
+  grid-column: span 2;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .metric-card.wide {
+    grid-column: span 1;
+  }
 }
 
 .intention-panel {
