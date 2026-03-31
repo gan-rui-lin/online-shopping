@@ -112,7 +112,7 @@ export interface ShoppingPlanItemVO {
 }
 
 export interface ShoppingPlanVO {
-  planId: number
+  planId: string
   planName: string
   triggerTime?: string
   planStatus: number

@@ -9,14 +9,14 @@ export function getShoppingPlanList(): Promise<ShoppingPlanVO[]> {
   return request.get<ShoppingPlanVO[]>('/plan/list')
 }
 
-export function getShoppingPlanDetail(planId: number): Promise<ShoppingPlanVO> {
+export function getShoppingPlanDetail(planId: string): Promise<ShoppingPlanVO> {
   return request.get<ShoppingPlanVO>(`/plan/${planId}`)
 }
 
-export function cancelShoppingPlan(planId: number): Promise<void> {
+export function cancelShoppingPlan(planId: string): Promise<void> {
   return request.post<void>(`/plan/${planId}/cancel`)
 }
 
-export function executeShoppingPlan(planId: number): Promise<void> {
+export function executeShoppingPlan(planId: string): Promise<void> {
   return request.post<void>(`/plan/${planId}/execute`)
 }

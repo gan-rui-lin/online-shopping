@@ -289,7 +289,7 @@ async function runAgentTask() {
     loading.value = true
     try {
       await createShoppingPlan({
-        planName: `定期补货-${Date.now()}`,
+        planName: `${keyword}-${necessityForm.value.frequency}`,
         remark: `频次：${necessityForm.value.frequency}；商品：${keyword}`,
         items: [
           {
@@ -394,7 +394,7 @@ async function quickCreatePlan() {
   ElMessage.success(t('intelligence.planCreated'))
 }
 
-async function quickExecutePlan(planId: number) {
+async function quickExecutePlan(planId: string) {
   await executeShoppingPlan(planId)
   ElMessage.success(t('intelligence.planExecuted'))
 }

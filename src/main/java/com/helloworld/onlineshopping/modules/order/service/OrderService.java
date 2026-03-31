@@ -168,7 +168,11 @@ public class OrderService {
             // Add to timeout queue (30 minutes)
             long expireTime = System.currentTimeMillis() + 30 * 60 * 1000;
             redisTemplate.opsForZSet().add(ORDER_TIMEOUT_KEY, orderNo, expireTime);
-            orderMessageProducer.sendOrderTimeoutMessage(orderNo);
+            try {
+                orderMessageProducer.sendOrderTimeoutMessage(orderNo);
+            } catch (Exception ex) {
+                log.warn("Send order timeout message failed, order created without MQ", ex);
+            }
 
             orderNos.add(orderNo);
 

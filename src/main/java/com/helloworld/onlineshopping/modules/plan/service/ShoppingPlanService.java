@@ -5,6 +5,10 @@ import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.common.security.SecurityUtil;
 import com.helloworld.onlineshopping.modules.cart.entity.CartItemEntity;
 import com.helloworld.onlineshopping.modules.cart.mapper.CartItemMapper;
+import com.helloworld.onlineshopping.modules.address.entity.UserAddressEntity;
+import com.helloworld.onlineshopping.modules.address.mapper.UserAddressMapper;
+import com.helloworld.onlineshopping.modules.order.dto.OrderSubmitDTO;
+import com.helloworld.onlineshopping.modules.order.service.OrderService;
 import com.helloworld.onlineshopping.modules.plan.dto.ShoppingPlanCreateDTO;
 import com.helloworld.onlineshopping.modules.plan.dto.ShoppingPlanItemDTO;
 import com.helloworld.onlineshopping.modules.plan.entity.ShoppingPlanEntity;
@@ -22,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +39,8 @@ public class ShoppingPlanService {
     private final ProductSpuMapper spuMapper;
     private final ProductSkuMapper skuMapper;
     private final CartItemMapper cartItemMapper;
+    private final UserAddressMapper addressMapper;
+    private final OrderService orderService;
 
     @Transactional
     public void createPlan(ShoppingPlanCreateDTO dto) {
@@ -91,6 +99,7 @@ public class ShoppingPlanService {
             throw new BusinessException("Plan not found");
         List<ShoppingPlanItemEntity> items = itemMapper.selectList(
             new LambdaQueryWrapper<ShoppingPlanItemEntity>().eq(ShoppingPlanItemEntity::getPlanId, planId));
+        Set<Long> cartSkuIds = new LinkedHashSet<>();
         for (ShoppingPlanItemEntity item : items) {
             LambdaQueryWrapper<ProductSpuEntity> w = new LambdaQueryWrapper<ProductSpuEntity>()
                 .eq(ProductSpuEntity::getStatus, 1).eq(ProductSpuEntity::getAuditStatus, 1);
@@ -124,9 +133,31 @@ public class ShoppingPlanService {
                         ci.setChecked(1);
                         cartItemMapper.insert(ci);
                     }
+                    cartSkuIds.add(sku.getId());
                 }
             }
         }
+        if (cartSkuIds.isEmpty()) {
+            throw new BusinessException("No matched products for plan");
+        }
+        UserAddressEntity address = addressMapper.selectOne(new LambdaQueryWrapper<UserAddressEntity>()
+            .eq(UserAddressEntity::getUserId, userId)
+            .eq(UserAddressEntity::getIsDefault, 1)
+            .last("LIMIT 1"));
+        if (address == null) {
+            address = addressMapper.selectOne(new LambdaQueryWrapper<UserAddressEntity>()
+                .eq(UserAddressEntity::getUserId, userId)
+                .orderByDesc(UserAddressEntity::getCreateTime)
+                .last("LIMIT 1"));
+        }
+        if (address == null) {
+            throw new BusinessException("No address found");
+        }
+        OrderSubmitDTO submitDTO = new OrderSubmitDTO();
+        submitDTO.setAddressId(address.getId());
+        submitDTO.setCartSkuIds(List.copyOf(cartSkuIds));
+        submitDTO.setRemark("购物计划执行：" + plan.getPlanName());
+        orderService.submitOrder(submitDTO);
         plan.setPlanStatus(2);
         planMapper.updateById(plan);
     }
