@@ -8,6 +8,8 @@ import com.helloworld.onlineshopping.modules.rag.entity.ProductKnowledgeDocEntit
 import com.helloworld.onlineshopping.modules.rag.mapper.ProductKnowledgeDocMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.List;
 @Service
 @RequiredArgsConstructor
@@ -49,5 +51,42 @@ public class KnowledgeService {
         }
         w.last("LIMIT " + limit);
         return docMapper.selectList(w);
+    }
+
+    public String buildProductSnapshot(Long spuId) {
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null) return "";
+
+        List<String> lines = new ArrayList<>();
+        lines.add("Title: " + safe(spu.getTitle()));
+        lines.add("SubTitle: " + safe(spu.getSubTitle()));
+        lines.add("Brand: " + safe(spu.getBrandName()));
+        lines.add("PriceRange: " + safe(spu.getMinPrice()) + " - " + safe(spu.getMaxPrice()));
+        lines.add("Detail: " + clip(safe(spu.getDetailText()), 480));
+
+        List<ProductSkuEntity> skus = skuMapper.selectList(
+            new LambdaQueryWrapper<ProductSkuEntity>().eq(ProductSkuEntity::getSpuId, spuId));
+        if (skus != null && !skus.isEmpty()) {
+            int limit = Math.min(3, skus.size());
+            for (int i = 0; i < limit; i++) {
+                ProductSkuEntity sku = skus.get(i);
+                lines.add("SKU: " + safe(sku.getSkuName()) + " | Spec: " + safe(sku.getSpecJson()) + " | Price: " + safe(sku.getSalePrice()));
+            }
+        }
+
+        return String.join("\n", lines);
+    }
+
+    private String safe(Object value) {
+        if (value == null) return "";
+        String text = String.valueOf(value).trim();
+        return text.isEmpty() ? "" : text;
+    }
+
+    private String clip(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text == null ? "" : text;
+        }
+        return text.substring(0, maxLength) + "...";
     }
 }

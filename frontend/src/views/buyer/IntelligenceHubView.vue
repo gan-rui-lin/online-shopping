@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -26,8 +26,8 @@ const activeTab = ref('rag')
 const { t } = useI18n()
 const router = useRouter()
 
-const ragForm = ref({ sourceType: 'favorite', spuId: undefined as number | undefined, question: '' })
-const ragSelectedKey = ref('')
+const ragForm = ref({ sourceType: 'favorite', question: '' })
+const ragSelectedKeys = ref<string[]>([])
 const ragAnswer = ref('')
 const ragSessionId = ref<number>()
 const ragHistory = ref<ChatMessageVO[]>([])
@@ -77,6 +77,13 @@ const ragProductOptions = computed(() => {
     shopName: 'shopName' in item ? item.shopName : '精选商品',
     time: 'createTime' in item ? item.createTime : item.browseTime,
   }))
+})
+
+const ragSelectedSpuIds = computed(() => {
+  const selected = ragProductOptions.value
+    .filter((item) => ragSelectedKeys.value.includes(item.uiKey))
+    .map((item) => item.spuId)
+  return Array.from(new Set(selected))
 })
 
 const bindProductOptions = computed(() => {
@@ -189,15 +196,19 @@ function renderMarkdown(mdText: string): string {
 }
 
 const aiReviewSummaryHtml = computed(() => renderMarkdown(aiReviewSummary.value?.summary || ''))
+const ragAnswerHtml = computed(() => renderMarkdown(ragAnswer.value || ''))
 
 function syncCategoryName() {
   const matched = categories.value.find((item) => item.id === necessityForm.value.requiredCategoryId)
   necessityForm.value.requiredCategoryName = matched?.categoryName || ''
 }
 
-function selectRagProduct(item: { spuId: number; uiKey: string }) {
-  ragForm.value.spuId = item.spuId
-  ragSelectedKey.value = item.uiKey
+function selectRagProduct(item: { uiKey: string }) {
+  if (ragSelectedKeys.value.includes(item.uiKey)) {
+    ragSelectedKeys.value = ragSelectedKeys.value.filter((key) => key !== item.uiKey)
+    return
+  }
+  ragSelectedKeys.value = [...ragSelectedKeys.value, item.uiKey]
 }
 
 function goProductDetail(spuId: number) {
@@ -238,9 +249,8 @@ async function loadExtraPanels() {
   categories.value = flattened
 
   const firstRagItem = ragProductOptions.value[0]
-  if (firstRagItem && !ragSelectedKey.value) {
-    ragForm.value.spuId = firstRagItem.spuId
-    ragSelectedKey.value = firstRagItem.uiKey
+  if (firstRagItem && ragSelectedKeys.value.length === 0) {
+    ragSelectedKeys.value = [firstRagItem.uiKey]
   }
 
   const defaultSpuId = bindProductOptions.value[0]?.spuId
@@ -256,8 +266,8 @@ async function loadExtraPanels() {
 }
 
 async function submitRagQuestion() {
-  if (!ragForm.value.spuId) {
-    ElMessage.warning('请先从收藏或历史中选择商品')
+  if (ragSelectedSpuIds.value.length === 0) {
+    ElMessage.warning('请先从收藏或历史中选择至少一个商品')
     return
   }
   if (!ragForm.value.question.trim()) {
@@ -269,7 +279,7 @@ async function submitRagQuestion() {
   try {
     const askedQuestion = ragForm.value.question.trim()
     const result = await askRag({
-      spuId: ragForm.value.spuId as number,
+      spuIds: ragSelectedSpuIds.value,
       question: askedQuestion,
       sessionId: ragSessionId.value,
     })
@@ -281,6 +291,14 @@ async function submitRagQuestion() {
     loading.value = false
   }
 }
+
+watch(ragProductOptions, (options) => {
+  const validKeys = new Set(options.map((item) => item.uiKey))
+  ragSelectedKeys.value = ragSelectedKeys.value.filter((key) => validKeys.has(key))
+  if (options.length > 0 && ragSelectedKeys.value.length === 0) {
+    ragSelectedKeys.value = [options[0].uiKey]
+  }
+})
 
 async function runAgentTask() {
   if (agentTaskType.value === 'NECESSITY') {
@@ -429,7 +447,7 @@ onMounted(loadExtraPanels)
               v-for="item in ragProductOptions"
               :key="item.uiKey"
               class="product-card"
-              :class="{ selected: ragSelectedKey === item.uiKey }"
+              :class="{ selected: ragSelectedKeys.includes(item.uiKey) }"
               @click="selectRagProduct(item)"
             >
               <img :src="resolveImageUrl(item.mainImage)" :alt="item.title" class="cover" />
@@ -462,13 +480,8 @@ onMounted(loadExtraPanels)
           </div>
           <div v-if="ragAnswer" class="rag-answer">
             <div class="rag-answer-title">AI 回答</div>
-            <div class="rag-answer-content">{{ ragAnswer }}</div>
+            <div class="rag-answer-content markdown-content" v-html="ragAnswerHtml"></div>
           </div>
-          <el-timeline v-if="ragHistory.length" class="mt-16">
-            <el-timeline-item v-for="(msg, idx) in ragHistory" :key="idx" :timestamp="msg.createTime">
-              <strong>{{ msg.role }}：</strong>{{ msg.content }}
-            </el-timeline-item>
-          </el-timeline>
         </el-tab-pane>
 
         <el-tab-pane :label="t('intelligence.tabAgent')" name="agent">

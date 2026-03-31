@@ -1,11 +1,13 @@
 package com.helloworld.onlineshopping.modules.rag.dto;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import java.util.List;
+
 @Data
 public class RagAskDTO {
-    @NotNull(message = "SPU ID is required")
     private Long spuId;
+    private List<Long> spuIds;
     @NotBlank(message = "Question is required")
     private String question;
     private Long sessionId;
