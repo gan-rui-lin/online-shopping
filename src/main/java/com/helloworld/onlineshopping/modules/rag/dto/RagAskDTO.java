@@ -11,4 +11,5 @@ public class RagAskDTO {
     @NotBlank(message = "Question is required")
     private String question;
     private Long sessionId;
+    private String locale;
 }

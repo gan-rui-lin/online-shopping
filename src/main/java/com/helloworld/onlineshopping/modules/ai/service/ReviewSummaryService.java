@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,7 +19,7 @@ public class ReviewSummaryService {
     private final ProductReviewMapper reviewMapper;
     private final AiClient aiClient;
 
-    public ReviewSummaryVO summarizeReviews(Long spuId) {
+    public ReviewSummaryVO summarizeReviews(Long spuId, String locale) {
         List<ProductReviewEntity> reviews = reviewMapper.selectList(
             new LambdaQueryWrapper<ProductReviewEntity>()
                 .eq(ProductReviewEntity::getSpuId, spuId)
@@ -32,7 +33,7 @@ public class ReviewSummaryService {
             vo.setAverageScore(0.0);
             vo.setPros(List.of());
             vo.setCons(List.of());
-            vo.setSummary("No reviews yet.");
+            vo.setSummary(isEnglish(locale) ? "No reviews yet." : "暂无评论。");
             return vo;
         }
 
@@ -44,8 +45,20 @@ public class ReviewSummaryService {
             .map(r -> "Score:" + r.getScore() + " " + r.getContent())
             .collect(Collectors.joining("\n"));
 
-        String prompt = "Summarize these product reviews. Extract top pros and cons.\nReviews:\n" + reviewTexts;
-        String result = aiClient.chat(prompt, "Summarize reviews");
+        String systemPrompt;
+        String userPrompt = "Reviews:\n" + reviewTexts;
+        if (isEnglish(locale)) {
+            systemPrompt = "Summarize product reviews. Output exactly in this format:\n" +
+                "PROS: item1, item2, item3\n" +
+                "CONS: item1, item2\n" +
+                "SUMMARY: one short paragraph in English.";
+        } else {
+            systemPrompt = "请总结商品评论，输出固定格式：\n" +
+                "PROS: 优点1, 优点2, 优点3\n" +
+                "CONS: 不足1, 不足2\n" +
+                "SUMMARY: 一段简短中文总结。";
+        }
+        String result = aiClient.chat(systemPrompt, userPrompt);
 
         // Parse mock response
         vo.setPros(extractSection(result, "PROS:"));
@@ -66,5 +79,9 @@ public class ReviewSummaryService {
             .map(String::trim)
             .filter(s -> !s.isEmpty())
             .collect(Collectors.toList());
+    }
+
+    private boolean isEnglish(String locale) {
+        return locale != null && locale.toLowerCase(Locale.ROOT).startsWith("en");
     }
 }

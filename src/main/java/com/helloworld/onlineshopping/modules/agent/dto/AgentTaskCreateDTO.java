@@ -25,4 +25,6 @@ public class AgentTaskCreateDTO {
     private String preference;
 
     private BigDecimal budgetLimit;
+
+    private String locale;
 }

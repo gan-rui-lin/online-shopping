@@ -22,8 +22,9 @@ import type {
 } from '@/types/intelligence'
 
 const activeTab = ref('rag')
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
+const activeLocale = computed(() => locale.value || 'zh-CN')
 
 const ragForm = ref({ sourceType: 'favorite', question: '' })
 const ragSelectedKeys = ref<string[]>([])
@@ -33,7 +34,7 @@ const ragHistory = ref<ChatMessageVO[]>([])
 
 const agentTaskType = ref<'NECESSITY' | 'INTENTION'>('NECESSITY')
 const necessityForm = ref({
-  frequency: '每月一次',
+  frequency: 'MONTHLY',
   bindSpuId: undefined as number | undefined,
   quantity: 1,
 })
@@ -49,7 +50,7 @@ const isNecessityMode = computed(() => agentTaskType.value === 'NECESSITY')
 const aiSpuId = ref<number | undefined>(undefined)
 const aiSelectedKey = ref('')
 const aiSourceType = ref<'favorite' | 'history'>('favorite')
-const aiSellingPoints = ref<string[]>([])
+const aiSellingPointsRaw = ref('')
 const aiReviewSummary = ref<ReviewSummaryVO>()
 const aiEvaluation = ref<ProductEvaluationVO>()
 
@@ -58,6 +59,15 @@ const histories = ref<BrowseHistoryVO[]>([])
 const plans = ref<ShoppingPlanVO[]>([])
 
 const loading = ref(false)
+
+const frequencyOptions = computed(() => [
+  { value: 'WEEKLY', label: t('intelligence.frequencyWeekly') },
+  { value: 'BIWEEKLY', label: t('intelligence.frequencyBiweekly') },
+  { value: 'MONTHLY', label: t('intelligence.frequencyMonthly') },
+  { value: 'QUARTERLY', label: t('intelligence.frequencyQuarterly') },
+])
+
+const frequencyLabelMap = computed(() => new Map(frequencyOptions.value.map((option) => [option.value, option.label])))
 
 const ragProductOptions = computed(() => {
   const source = ragForm.value.sourceType
@@ -68,7 +78,7 @@ const ragProductOptions = computed(() => {
     title: item.title,
     mainImage: item.mainImage,
     minPrice: item.minPrice,
-    shopName: 'shopName' in item ? item.shopName : '精选商品',
+    shopName: 'shopName' in item ? item.shopName : t('intelligence.curatedShop'),
     time: 'createTime' in item ? item.createTime : item.browseTime,
   }))
 })
@@ -81,15 +91,15 @@ const ragSelectedSpuIds = computed(() => {
 })
 
 const bindProductOptions = computed(() => {
-  const map = new Map<number, { title: string; mainImage: string; minPrice: number; shopName: string; from: string }>()
+  const map = new Map<number, { title: string; mainImage: string; minPrice: number; shopName: string; from: 'favorite' | 'history' }>()
   ;[...favorites.value, ...histories.value].forEach((item) => {
     if (!map.has(item.spuId)) {
       map.set(item.spuId, {
         title: item.title,
         mainImage: item.mainImage,
         minPrice: item.minPrice,
-        shopName: 'shopName' in item ? item.shopName : '精选商品',
-        from: 'createTime' in item ? '收藏' : '历史',
+        shopName: 'shopName' in item ? item.shopName : t('intelligence.curatedShop'),
+        from: 'createTime' in item ? 'favorite' : 'history',
       })
     }
   })
@@ -106,10 +116,12 @@ const aiProductOptions = computed(() => {
     title: item.title,
     mainImage: item.mainImage,
     minPrice: item.minPrice,
-    shopName: 'shopName' in item ? item.shopName : '精选商品',
+    shopName: 'shopName' in item ? item.shopName : t('intelligence.curatedShop'),
     time: 'createTime' in item ? item.createTime : item.browseTime,
   }))
 })
+
+const aiSellingPointsHtml = computed(() => renderMarkdown(aiSellingPointsRaw.value || ''))
 
 function normalizeLines(text: string): string[] {
   return text
@@ -243,7 +255,7 @@ async function loadExtraPanels() {
 
 async function submitRagQuestion() {
   if (ragSelectedSpuIds.value.length === 0) {
-    ElMessage.warning('请先从收藏或历史中选择至少一个商品')
+    ElMessage.warning(t('intelligence.needSelectProduct'))
     return
   }
   if (!ragForm.value.question.trim()) {
@@ -258,6 +270,7 @@ async function submitRagQuestion() {
       spuIds: ragSelectedSpuIds.value,
       question: askedQuestion,
       sessionId: ragSessionId.value,
+      locale: activeLocale.value,
     })
     ragAnswer.value = result.answer
     ragSessionId.value = result.sessionId
@@ -279,16 +292,17 @@ watch(ragProductOptions, (options) => {
 async function runAgentTask() {
   if (agentTaskType.value === 'NECESSITY') {
     if (!necessityForm.value.bindSpuId) {
-      ElMessage.warning('必需品代购需要先选择绑定商品')
+      ElMessage.warning(t('intelligence.needBindProduct'))
       return
     }
     const bindItem = bindProductOptions.value.find((item) => item.spuId === necessityForm.value.bindSpuId)
     const keyword = bindItem?.title || '必需品'
+    const frequencyLabel = frequencyLabelMap.value.get(necessityForm.value.frequency) || necessityForm.value.frequency
     loading.value = true
     try {
       await createShoppingPlan({
-        planName: `${keyword}-${necessityForm.value.frequency}`,
-        remark: `频次：${necessityForm.value.frequency}；商品：${keyword}`,
+        planName: `${keyword}-${frequencyLabel}`,
+        remark: `${t('intelligence.frequency')}: ${frequencyLabel}; ${t('intelligence.product')}: ${keyword}`,
         items: [
           {
             keyword,
@@ -299,7 +313,7 @@ async function runAgentTask() {
       agentTask.value = undefined
       selectedSkuIds.value = []
       await loadExtraPanels()
-      ElMessage.success('已加入定期计划')
+      ElMessage.success(t('intelligence.planAdded'))
     } finally {
       loading.value = false
     }
@@ -307,11 +321,11 @@ async function runAgentTask() {
   }
 
   if (!intentionForm.value.productName.trim()) {
-    ElMessage.warning('请先输入商品名称')
+    ElMessage.warning(t('intelligence.needProductName'))
     return
   }
   if (!intentionForm.value.requirementPreference.trim()) {
-    ElMessage.warning('请先输入需求、偏好')
+    ElMessage.warning(t('intelligence.needPreference'))
     return
   }
 
@@ -320,6 +334,7 @@ async function runAgentTask() {
     intentRequirement: `${intentionForm.value.productName} ${intentionForm.value.requirementPreference}`.trim(),
     preference: intentionForm.value.requirementPreference,
     budgetLimit: intentionForm.value.budgetLimit,
+    locale: activeLocale.value,
   }
 
   loading.value = true
@@ -343,7 +358,7 @@ async function addSelectedToCart() {
 
 async function runAiCopywriting() {
   if (!aiSpuId.value) {
-    ElMessage.warning('请先从收藏或历史中选择商品')
+    ElMessage.warning(t('intelligence.needSelectProduct'))
     return
   }
   const selected = aiProductOptions.value.find((item) => item.uiKey === aiSelectedKey.value)
@@ -353,11 +368,11 @@ async function runAiCopywriting() {
   loading.value = true
   try {
     const [selling, summary, evaluation] = await Promise.all([
-      generateSellingPoints(aiSpuId.value).catch(() => ({ content: t('intelligence.needMerchant'), variants: [] })),
-      getReviewSummary(aiSpuId.value).catch(() => undefined),
-      getProductEvaluation(aiSpuId.value).catch(() => undefined),
+      generateSellingPoints(aiSpuId.value, activeLocale.value).catch(() => ({ content: t('intelligence.needMerchant'), variants: [] })),
+      getReviewSummary(aiSpuId.value, activeLocale.value).catch(() => undefined),
+      getProductEvaluation(aiSpuId.value, activeLocale.value).catch(() => undefined),
     ])
-    aiSellingPoints.value = normalizeLines(selling.content)
+    aiSellingPointsRaw.value = selling.content
     aiReviewSummary.value = summary
     aiEvaluation.value = evaluation
   } finally {
@@ -410,8 +425,8 @@ onMounted(loadExtraPanels)
         <el-tab-pane :label="t('intelligence.tabRag')" name="rag">
           <div class="source-switch">
             <el-radio-group v-model="ragForm.sourceType">
-              <el-radio-button label="favorite">我的收藏</el-radio-button>
-              <el-radio-button label="history">浏览历史</el-radio-button>
+              <el-radio-button label="favorite">{{ t('intelligence.sourceFavorite') }}</el-radio-button>
+              <el-radio-button label="history">{{ t('intelligence.sourceHistory') }}</el-radio-button>
             </el-radio-group>
           </div>
 
@@ -432,12 +447,12 @@ onMounted(loadExtraPanels)
                   <span class="time">{{ item.time }}</span>
                 </div>
                 <div class="action-row">
-                  <el-button link type="primary" @click.stop="goProductDetail(item.spuId)">查看详情</el-button>
+                  <el-button link type="primary" @click.stop="goProductDetail(item.spuId)">{{ t('intelligence.viewDetail') }}</el-button>
                 </div>
               </div>
             </button>
           </div>
-          <el-empty v-else description="当前来源暂无商品，可先去收藏或浏览商品" />
+          <el-empty v-else :description="t('intelligence.sourceEmpty')" />
 
           <div class="rag-input-panel">
             <el-input
@@ -452,62 +467,64 @@ onMounted(loadExtraPanels)
             </el-button>
           </div>
           <div v-if="ragAnswer" class="rag-answer">
-            <div class="rag-answer-title">AI 回答</div>
+            <div class="rag-answer-title">{{ t('intelligence.aiAnswer') }}</div>
             <div class="rag-answer-content markdown-content" v-html="ragAnswerHtml"></div>
           </div>
         </el-tab-pane>
 
         <el-tab-pane :label="t('intelligence.tabAgent')" name="agent">
           <div class="toolbar wrap">
-            <el-select v-model="agentTaskType" placeholder="任务类型">
-              <el-option label="定期补货" value="NECESSITY" />
-              <el-option label="意向类智能推荐" value="INTENTION" />
+            <el-select v-model="agentTaskType" :placeholder="t('intelligence.taskType')">
+              <el-option :label="t('intelligence.taskTypeNecessity')" value="NECESSITY" />
+              <el-option :label="t('intelligence.taskTypeIntention')" value="INTENTION" />
             </el-select>
 
             <template v-if="agentTaskType === 'NECESSITY'">
-              <el-select v-model="necessityForm.frequency" placeholder="频次">
-                <el-option label="每周一次" value="每周一次" />
-                <el-option label="每半月一次" value="每半月一次" />
-                <el-option label="每月一次" value="每月一次" />
-                <el-option label="每季度一次" value="每季度一次" />
+              <el-select v-model="necessityForm.frequency" :placeholder="t('intelligence.frequency')">
+                <el-option
+                  v-for="option in frequencyOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
-              <el-input-number v-model="necessityForm.quantity" :min="1" controls-position="right" />
+              <el-input-number v-model="necessityForm.quantity" :min="1" controls-position="right" :placeholder="t('intelligence.quantity')" />
             </template>
 
             <template v-else>
               <div class="intention-panel">
                 <div class="intention-main">
                   <div class="intention-card">
-                    <div class="intention-label">想买什么</div>
-                    <el-input v-model="intentionForm.productName" placeholder="商品名称，如：蓝牙耳机" clearable />
+                    <div class="intention-label">{{ t('intelligence.productNameLabel') }}</div>
+                    <el-input v-model="intentionForm.productName" :placeholder="t('intelligence.productNamePlaceholder')" clearable />
                   </div>
                   <div class="intention-card">
-                    <div class="intention-label">需求偏好</div>
+                    <div class="intention-label">{{ t('intelligence.preferenceLabel') }}</div>
                     <el-input
                       v-model="intentionForm.requirementPreference"
                       type="textarea"
                       :rows="3"
                       resize="none"
-                      placeholder="需求、偏好，如：降噪、通勤、长续航"
+                      :placeholder="t('intelligence.preferencePlaceholder')"
                     />
                   </div>
                 </div>
                 <div class="intention-card budget">
-                  <div class="intention-label">预算上限</div>
-                  <el-input-number v-model="intentionForm.budgetLimit" :min="1" controls-position="right" placeholder="预算上限" />
-                  <span class="budget-tip">可选</span>
+                  <div class="intention-label">{{ t('intelligence.budgetLabel') }}</div>
+                  <el-input-number v-model="intentionForm.budgetLimit" :min="1" controls-position="right" :placeholder="t('intelligence.budgetLabel')" />
+                  <span class="budget-tip">{{ t('intelligence.budgetOptional') }}</span>
                 </div>
               </div>
             </template>
 
             <el-button type="primary" :loading="loading" @click="runAgentTask">
-              {{ isNecessityMode ? '加入定期计划' : t('intelligence.runTask') }}
+              {{ isNecessityMode ? t('intelligence.addPlan') : t('intelligence.runTask') }}
             </el-button>
             <el-button v-if="!isNecessityMode" :disabled="!agentTask" @click="addSelectedToCart">{{ t('intelligence.addToCart') }}</el-button>
           </div>
 
           <div v-if="agentTaskType === 'NECESSITY'" class="agent-bind-panel">
-            <div class="panel-head">选择绑定商品</div>
+            <div class="panel-head">{{ t('intelligence.selectBindProduct') }}</div>
             <div v-if="bindProductOptions.length" class="product-browser">
               <button
                 v-for="item in bindProductOptions"
@@ -522,12 +539,12 @@ onMounted(loadExtraPanels)
                   <div class="sub">{{ item.shopName }}</div>
                   <div class="price-row">
                     <span class="price">￥{{ item.minPrice }}</span>
-                    <span class="time">来源：{{ item.from }}</span>
+                    <span class="time">{{ t('intelligence.sourceFrom') }}{{ item.from === 'favorite' ? t('intelligence.sourceFavorite') : t('intelligence.sourceHistory') }}</span>
                   </div>
                 </div>
               </button>
             </div>
-            <el-empty v-else description="暂无可绑定商品" />
+            <el-empty v-else :description="t('intelligence.noBindProduct')" />
           </div>
 
           <el-table v-if="agentTask?.recommendations?.length" :data="agentTask.recommendations" stripe>
@@ -544,7 +561,7 @@ onMounted(loadExtraPanels)
                     <el-button link type="primary" class="agent-link" @click="goProductDetail(scope.row.spuId)">
                       {{ scope.row.title }}
                     </el-button>
-                    <span class="agent-sku">SKU: {{ scope.row.skuId }}</span>
+                    <span class="agent-sku">{{ t('intelligence.skuLabel') }}{{ scope.row.skuId }}</span>
                   </div>
                 </div>
               </template>
@@ -557,8 +574,8 @@ onMounted(loadExtraPanels)
         <el-tab-pane :label="t('intelligence.tabCopywriting')" name="copywriting">
           <div class="source-switch">
             <el-radio-group v-model="aiSourceType">
-              <el-radio-button label="favorite">我的收藏</el-radio-button>
-              <el-radio-button label="history">浏览历史</el-radio-button>
+              <el-radio-button label="favorite">{{ t('intelligence.sourceFavorite') }}</el-radio-button>
+              <el-radio-button label="history">{{ t('intelligence.sourceHistory') }}</el-radio-button>
             </el-radio-group>
           </div>
 
@@ -579,12 +596,12 @@ onMounted(loadExtraPanels)
                   <span class="time">{{ item.time }}</span>
                 </div>
                 <div class="action-row">
-                  <el-button link type="primary" @click.stop="goProductDetail(item.spuId)">查看详情</el-button>
+                  <el-button link type="primary" @click.stop="goProductDetail(item.spuId)">{{ t('intelligence.viewDetail') }}</el-button>
                 </div>
               </div>
             </button>
           </div>
-          <el-empty v-else description="当前来源暂无商品，可先去收藏或浏览商品" />
+          <el-empty v-else :description="t('intelligence.sourceEmpty')" />
 
           <div class="copywriting-actions">
             <el-button type="primary" :loading="loading" @click="runAiCopywriting">{{ t('intelligence.generate') }}</el-button>
@@ -593,14 +610,33 @@ onMounted(loadExtraPanels)
           <div class="ai-evaluation">
             <div class="ai-panel">
               <div class="panel-title">{{ t('intelligence.sellingPointsLabel') }}</div>
-              <div v-if="aiSellingPoints.length" class="bullet-list">
-                <div v-for="(item, index) in aiSellingPoints" :key="index">{{ item }}</div>
-              </div>
+              <div v-if="aiSellingPointsRaw" class="markdown-content" v-html="aiSellingPointsHtml"></div>
               <span v-else>—</span>
             </div>
             <div class="ai-panel">
               <div class="panel-title">{{ t('intelligence.reviewSummaryLabel') }}</div>
-              <div v-if="aiReviewSummary?.summary" class="markdown-content" v-html="aiReviewSummaryHtml"></div>
+              <div v-if="aiReviewSummary">
+                <div class="review-columns">
+                  <div class="review-block">
+                    <div class="review-title">{{ t('intelligence.reviewPros') }}</div>
+                    <div v-if="aiReviewSummary.pros?.length" class="bullet-list">
+                      <div v-for="(item, index) in aiReviewSummary.pros" :key="index">{{ item }}</div>
+                    </div>
+                    <span v-else>—</span>
+                  </div>
+                  <div class="review-block">
+                    <div class="review-title">{{ t('intelligence.reviewCons') }}</div>
+                    <div v-if="aiReviewSummary.cons?.length" class="bullet-list">
+                      <div v-for="(item, index) in aiReviewSummary.cons" :key="index">{{ item }}</div>
+                    </div>
+                    <span v-else>—</span>
+                  </div>
+                </div>
+                <div class="review-summary">
+                  <div class="review-title">{{ t('intelligence.reviewSummary') }}</div>
+                  <div class="markdown-content" v-html="aiReviewSummaryHtml"></div>
+                </div>
+              </div>
               <span v-else>—</span>
             </div>
             <div class="ai-metrics">
@@ -844,6 +880,37 @@ onMounted(loadExtraPanels)
   border-radius: 14px;
   padding: 14px;
   background: linear-gradient(120deg, #fffaf5 0%, #fff5f0 100%);
+}
+
+.review-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.review-block {
+  background: #ffffff;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.review-summary {
+  background: #ffffff;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.review-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .panel-title {

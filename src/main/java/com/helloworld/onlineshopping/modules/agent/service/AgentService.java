@@ -107,8 +107,12 @@ public class AgentService {
         }
         ProductSkuEntity boundSku = lowestPriceSku(boundSpu.getId());
         if (boundSku != null) {
+            String primaryReason = isEnglish(dto.getLocale())
+                ? "Bound restock item. Suggested frequency: " + safeFrequency(dto.getFrequency())
+                + ", quantity per run: " + safeQuantity(dto.getQuantity())
+                : "绑定补货商品，建议频次：" + safeFrequency(dto.getFrequency()) + "，每次数量：" + safeQuantity(dto.getQuantity());
             AgentRecommendationVO primary = toRecommendation(boundSpu, boundSku,
-                "绑定补货商品，建议频次：" + safeFrequency(dto.getFrequency()) + "，每次数量：" + safeQuantity(dto.getQuantity()));
+                primaryReason);
             recs.add(primary);
         }
 
@@ -127,7 +131,10 @@ public class AgentService {
             if (sku == null) {
                 continue;
             }
-            recs.add(toRecommendation(spu, sku, "同类高销量替代款，适合作为补货备选"));
+            String altReason = isEnglish(dto.getLocale())
+                ? "Popular alternative in the same category for backup restock."
+                : "同类高销量替代款，适合作为补货备选";
+            recs.add(toRecommendation(spu, sku, altReason));
         }
 
         return recs;
@@ -164,7 +171,10 @@ public class AgentService {
         }
 
         Map<Long, String> aiReasonMap = generateAiReasons(dto, recs);
-        recs.forEach(r -> r.setReason(aiReasonMap.getOrDefault(r.getSpuId(), "符合你的需求与偏好，且性价比较高")));
+        String fallbackReason = isEnglish(dto.getLocale())
+            ? "Matches your needs with good overall value."
+            : "符合你的需求与偏好，且性价比较高";
+        recs.forEach(r -> r.setReason(aiReasonMap.getOrDefault(r.getSpuId(), fallbackReason)));
         return recs;
     }
 
@@ -195,11 +205,21 @@ public class AgentService {
             String candidates = batch.stream()
                 .map(spu -> "spuId=" + spu.getId() + ", title=" + nullSafe(spu.getTitle()))
                 .collect(Collectors.joining("\n"));
-            String systemPrompt = "你是电商导购助手。根据用户需求从候选商品名称中筛选相关商品。" +
-                "仅返回 JSON 数组，格式为 [123,456]，无匹配返回 []。";
-            String userPrompt = "用户需求：" + dto.getIntentRequirement() + "\n偏好：" + nullSafe(dto.getPreference()) +
-                "\n预算上限：" + (dto.getBudgetLimit() == null ? "不限" : dto.getBudgetLimit()) +
-                "\n候选商品：\n" + candidates;
+            String systemPrompt;
+            String userPrompt;
+            if (isEnglish(dto.getLocale())) {
+                systemPrompt = "You are an e-commerce shopping assistant. Select relevant products by name." +
+                    "Return ONLY a JSON array in the form [123,456]. Return [] if no match.";
+                userPrompt = "User need: " + dto.getIntentRequirement() + "\nPreferences: " + nullSafe(dto.getPreference()) +
+                    "\nBudget cap: " + (dto.getBudgetLimit() == null ? "No limit" : dto.getBudgetLimit()) +
+                    "\nCandidates:\n" + candidates;
+            } else {
+                systemPrompt = "你是电商导购助手。根据用户需求从候选商品名称中筛选相关商品。" +
+                    "仅返回 JSON 数组，格式为 [123,456]，无匹配返回 []。";
+                userPrompt = "用户需求：" + dto.getIntentRequirement() + "\n偏好：" + nullSafe(dto.getPreference()) +
+                    "\n预算上限：" + (dto.getBudgetLimit() == null ? "不限" : dto.getBudgetLimit()) +
+                    "\n候选商品：\n" + candidates;
+            }
             String aiText = aiClient.chat(systemPrompt, userPrompt);
             JsonNode root = objectMapper.readTree(aiText);
             if (!root.isArray()) {
@@ -225,10 +245,19 @@ public class AgentService {
             String candidateText = recs.stream()
                 .map(r -> "spuId=" + r.getSpuId() + ", title=" + r.getTitle() + ", price=" + r.getPrice())
                 .collect(Collectors.joining("\n"));
-            String systemPrompt = "你是电商导购助手。根据用户需求对候选商品生成推荐理由。" +
-                "仅返回 JSON 数组，格式为 [{\"spuId\":123,\"reason\":\"推荐理由\"}]。";
-            String userPrompt = "用户需求：" + dto.getIntentRequirement() + "\n偏好：" + nullSafe(dto.getPreference()) +
-                "\n预算上限：" + (dto.getBudgetLimit() == null ? "不限" : dto.getBudgetLimit()) + "\n候选商品：\n" + candidateText;
+            String systemPrompt;
+            String userPrompt;
+            if (isEnglish(dto.getLocale())) {
+                systemPrompt = "You are an e-commerce shopping assistant. Generate reasons for each candidate." +
+                    "Return ONLY a JSON array like [{\"spuId\":123,\"reason\":\"Reason\"}].";
+                userPrompt = "User need: " + dto.getIntentRequirement() + "\nPreferences: " + nullSafe(dto.getPreference()) +
+                    "\nBudget cap: " + (dto.getBudgetLimit() == null ? "No limit" : dto.getBudgetLimit()) + "\nCandidates:\n" + candidateText;
+            } else {
+                systemPrompt = "你是电商导购助手。根据用户需求对候选商品生成推荐理由。" +
+                    "仅返回 JSON 数组，格式为 [{\"spuId\":123,\"reason\":\"推荐理由\"}]。";
+                userPrompt = "用户需求：" + dto.getIntentRequirement() + "\n偏好：" + nullSafe(dto.getPreference()) +
+                    "\n预算上限：" + (dto.getBudgetLimit() == null ? "不限" : dto.getBudgetLimit()) + "\n候选商品：\n" + candidateText;
+            }
             String aiText = aiClient.chat(systemPrompt, userPrompt);
             JsonNode root = objectMapper.readTree(aiText);
             if (!root.isArray()) {
@@ -300,6 +329,10 @@ public class AgentService {
 
     private String nullSafe(String value) {
         return value == null ? "" : value;
+    }
+
+    private boolean isEnglish(String locale) {
+        return locale != null && locale.toLowerCase(Locale.ROOT).startsWith("en");
     }
 
     private AgentTaskVO buildVO(AgentTaskEntity task, List<AgentRecommendationVO> recs) {

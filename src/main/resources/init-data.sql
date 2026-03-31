@@ -178,4 +178,40 @@ INSERT INTO cart_item (id, user_id, sku_id, quantity, checked) VALUES
 (9601, 7700, 9105, 1, 1),
 (9602, 7700, 9108, 2, 1);
 
+-- 13. Product reviews (detailed, multiple per product)
+INSERT INTO product_review (
+    id, order_item_id, order_no, user_id, spu_id, sku_id,
+    score, content, anonymous_flag, review_status, create_time
+) VALUES
+-- iPhone 15 Pro Max (4)
+(9700, 9800, 'ORD-20260330-001', 7700, 9000, 9100, 5, 'Camera is sharp with strong low-light detail. ProMotion feels smooth and battery lasts a full day of mixed use. USB-C charging is convenient; build is solid and balanced.', 0, 1, '2026-03-30 10:10:00'),
+(9701, 9801, 'ORD-20260330-002', 7700, 9000, 9101, 4, 'Display is bright and color-accurate. Thermals stay stable during long video recording. Price is steep but overall experience is premium.', 1, 1, '2026-03-30 12:45:00'),
+(9702, 9802, 'ORD-20260330-003', 7700, 9000, 9102, 5, 'Gaming performance is excellent; no stutter in heavy titles. Speakers are loud and clear. Battery health still great after a week of heavy use.', 0, 1, '2026-03-30 14:30:00'),
+(9703, 9803, 'ORD-20260330-004', 7700, 9000, 9100, 4, 'Photos have good dynamic range and skin tones look natural. The device is a bit heavy with a case, but build quality is top tier.', 0, 1, '2026-03-30 18:05:00'),
+-- MacBook Pro 14-inch M3 Pro (4)
+(9704, 9804, 'ORD-20260330-005', 7700, 9001, 9103, 5, 'Compiles are fast and the fan rarely spins up. Keyboard is comfortable for long sessions. Screen is crisp with deep contrast.', 0, 1, '2026-03-30 15:20:00'),
+(9705, 9805, 'ORD-20260330-006', 7700, 9001, 9104, 4, 'Excellent display and speaker quality. Battery life is solid for real work. A bit pricey but the performance is consistent.', 0, 1, '2026-03-30 16:05:00'),
+(9706, 9806, 'ORD-20260330-007', 7700, 9001, 9103, 5, 'Runs multiple design apps smoothly. Ports are practical and MagSafe is a plus. Stays cool on lap even during exports.', 1, 1, '2026-03-30 17:40:00'),
+(9707, 9807, 'ORD-20260330-008', 7700, 9001, 9104, 4, 'Trackpad is precise and large. Wi-Fi performance is stable. Slightly heavy for daily commute but acceptable.', 0, 1, '2026-03-30 20:15:00'),
+-- Sony WH-1000XM5 (4)
+(9708, 9808, 'ORD-20260330-009', 7700, 9002, 9105, 5, 'ANC is very effective on subway and office noise. Bass is tight, mids are clear. Mic quality is good for calls.', 0, 1, '2026-03-30 18:30:00'),
+(9709, 9809, 'ORD-20260330-010', 7700, 9002, 9106, 4, 'Comfortable for 2-3 hour sessions and not too hot. Multipoint works well. Case is compact and easy to carry.', 1, 1, '2026-03-30 19:10:00'),
+(9710, 9810, 'ORD-20260330-011', 7700, 9002, 9105, 5, 'Battery easily lasts a full workweek. Controls are responsive and touch gestures are intuitive.', 0, 1, '2026-03-30 21:10:00'),
+(9711, 9811, 'ORD-20260330-012', 7700, 9002, 9106, 4, 'Soundstage is wider than expected. ANC pressure is mild; good balance for long use.', 0, 1, '2026-03-30 22:10:00'),
+-- Silk Blend Midi Dress (4)
+(9712, 9812, 'ORD-20260330-013', 7700, 9003, 9107, 5, 'Fabric feels premium and drapes nicely. Fit is flattering at the waist with enough stretch for comfort.', 0, 1, '2026-03-30 20:05:00'),
+(9713, 9813, 'ORD-20260330-014', 7700, 9003, 9107, 4, 'Color is true to photos and stitching is clean. Lining is breathable and not itchy.', 0, 1, '2026-03-30 21:15:00'),
+(9714, 9814, 'ORD-20260330-015', 7700, 9003, 9107, 5, 'Works well for office and dinner. Zipper is smooth and the hemline falls nicely.', 1, 1, '2026-03-30 22:05:00'),
+(9715, 9815, 'ORD-20260330-016', 7700, 9003, 9107, 4, 'Slightly long for shorter height but easy to adjust with heels. Overall quality is good.', 0, 1, '2026-03-31 08:20:00'),
+-- Clean Code (Chinese Edition) (4)
+(9716, 9816, 'ORD-20260330-017', 7700, 9004, 9108, 5, 'Practical advice with clear examples. The chapter on naming is especially useful for reviews.', 0, 1, '2026-03-30 22:00:00'),
+(9717, 9817, 'ORD-20260330-018', 7700, 9004, 9108, 4, 'Good reference for refactoring discussions. Some sections are dense but worth reading.', 1, 1, '2026-03-30 22:40:00'),
+(9718, 9818, 'ORD-20260330-019', 7700, 9004, 9108, 5, 'Examples are easy to follow. Helps establish shared standards within a team.', 0, 1, '2026-03-31 09:05:00'),
+(9719, 9819, 'ORD-20260330-020', 7700, 9004, 9108, 4, 'Print quality is good. Great for junior engineers to build habits.', 0, 1, '2026-03-31 09:25:00'),
+-- Dyson V12 Detect Slim (4)
+(9720, 9820, 'ORD-20260330-021', 7700, 9005, 9109, 5, 'Laser dust detection is surprisingly useful. Lightweight and easy to maneuver under furniture.', 0, 1, '2026-03-31 09:10:00'),
+(9721, 9821, 'ORD-20260330-022', 7700, 9005, 9109, 4, 'Suction is strong on hard floors and medium on rugs. Noise level is acceptable.', 0, 1, '2026-03-31 09:35:00'),
+(9722, 9822, 'ORD-20260330-023', 7700, 9005, 9109, 5, 'Battery lasts around 45 minutes in eco mode. Dust bin is easy to empty.', 1, 1, '2026-03-31 10:05:00'),
+(9723, 9823, 'ORD-20260330-024', 7700, 9005, 9109, 4, 'Accessories are useful, especially the crevice tool. Good overall value for apartments.', 0, 1, '2026-03-31 10:25:00');
+
 

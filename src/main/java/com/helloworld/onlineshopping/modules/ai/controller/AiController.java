@@ -23,31 +23,31 @@ public class AiController {
 
     @Operation(summary = "Generate title")
     @PostMapping("/copywriting/title/{spuId}")
-    public Result<CopywritingResultVO> title(@PathVariable Long spuId) {
-        return Result.success(copywritingService.generateTitle(spuId));
+    public Result<CopywritingResultVO> title(@PathVariable Long spuId, @RequestParam(required = false) String locale) {
+        return Result.success(copywritingService.generateTitle(spuId, locale));
     }
 
     @Operation(summary = "Generate description")
     @PostMapping("/copywriting/description")
     public Result<CopywritingResultVO> description(@RequestBody CopywritingRequestDTO dto) {
-        return Result.success(copywritingService.generateDescription(dto.getKeywords(), dto.getTargetAudience(), dto.getStyle()));
+        return Result.success(copywritingService.generateDescription(dto.getKeywords(), dto.getTargetAudience(), dto.getStyle(), dto.getLocale()));
     }
 
     @Operation(summary = "Generate selling points")
     @PostMapping("/copywriting/selling-points/{spuId}")
-    public Result<CopywritingResultVO> sellingPoints(@PathVariable Long spuId) {
-        return Result.success(copywritingService.generateSellingPoints(spuId));
+    public Result<CopywritingResultVO> sellingPoints(@PathVariable Long spuId, @RequestParam(required = false) String locale) {
+        return Result.success(copywritingService.generateSellingPoints(spuId, locale));
     }
 
     @Operation(summary = "Review summary")
     @GetMapping("/review-summary/{spuId}")
-    public Result<ReviewSummaryVO> reviewSummary(@PathVariable Long spuId) {
-        return Result.success(reviewSummaryService.summarizeReviews(spuId));
+    public Result<ReviewSummaryVO> reviewSummary(@PathVariable Long spuId, @RequestParam(required = false) String locale) {
+        return Result.success(reviewSummaryService.summarizeReviews(spuId, locale));
     }
 
     @Operation(summary = "Product multi-dimensional evaluation")
     @GetMapping("/copywriting/evaluate/{spuId}")
-    public Result<ProductEvaluationVO> evaluate(@PathVariable Long spuId) {
-        return Result.success(copywritingService.evaluateProduct(spuId));
+    public Result<ProductEvaluationVO> evaluate(@PathVariable Long spuId, @RequestParam(required = false) String locale) {
+        return Result.success(copywritingService.evaluateProduct(spuId, locale));
     }
 }

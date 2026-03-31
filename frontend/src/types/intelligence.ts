@@ -52,6 +52,7 @@ export interface AgentTaskCreateDTO {
   intentRequirement?: string
   preference?: string
   budgetLimit?: number
+  locale?: string
 }
 
 export interface RagAnswerVO {
