@@ -10,6 +10,7 @@ import { getFavoriteList, toggleFavorite } from '@/api/favorite'
 import { clearBrowseHistory, getBrowseHistory } from '@/api/behavior'
 import { createShoppingPlan, executeShoppingPlan, getShoppingPlanList } from '@/api/plan'
 import { getCategoryTree } from '@/api/category'
+import { resolveImageUrl } from '@/utils/image'
 import type {
   AgentTaskCreateDTO,
   AgentTaskVO,
@@ -431,7 +432,7 @@ onMounted(loadExtraPanels)
               :class="{ selected: ragSelectedKey === item.uiKey }"
               @click="selectRagProduct(item)"
             >
-              <img :src="item.mainImage" :alt="item.title" class="cover" />
+              <img :src="resolveImageUrl(item.mainImage)" :alt="item.title" class="cover" />
               <div class="meta">
                 <div class="title">{{ item.title }}</div>
                 <div class="sub">{{ item.shopName }}</div>
@@ -520,7 +521,7 @@ onMounted(loadExtraPanels)
                 :class="{ selected: necessityForm.bindSpuId === item.spuId }"
                 @click="selectNecessityBindProduct(item.spuId)"
               >
-                <img :src="item.mainImage" :alt="item.title" class="cover" />
+                <img :src="resolveImageUrl(item.mainImage)" :alt="item.title" class="cover" />
                 <div class="meta">
                   <div class="title">{{ item.title }}</div>
                   <div class="sub">{{ item.shopName }}</div>
@@ -543,7 +544,7 @@ onMounted(loadExtraPanels)
             <el-table-column :label="t('intelligence.product')" min-width="280">
               <template #default="scope">
                 <div class="agent-product-cell">
-                  <img :src="scope.row.mainImage" :alt="scope.row.title" class="agent-thumb" />
+                  <img :src="resolveImageUrl(scope.row.mainImage)" :alt="scope.row.title" class="agent-thumb" />
                   <div class="agent-product-meta">
                     <el-button link type="primary" class="agent-link" @click="goProductDetail(scope.row.spuId)">
                       {{ scope.row.title }}
@@ -574,7 +575,7 @@ onMounted(loadExtraPanels)
               :class="{ selected: aiSelectedKey === item.uiKey }"
               @click="selectAiProduct(item)"
             >
-              <img :src="item.mainImage" :alt="item.title" class="cover" />
+              <img :src="resolveImageUrl(item.mainImage)" :alt="item.title" class="cover" />
               <div class="meta">
                 <div class="title">{{ item.title }}</div>
                 <div class="sub">{{ item.shopName }}</div>

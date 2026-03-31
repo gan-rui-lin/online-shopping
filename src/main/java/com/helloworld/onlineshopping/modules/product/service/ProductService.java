@@ -243,12 +243,18 @@ public class ProductService {
 
     @Cacheable(value = "product:detail", key = "#spuId")
     public ProductDetailVO getProductDetail(Long spuId) {
-        // Cache Penetration Defense using Bloom Filter
+        ProductSpuEntity spu;
+        // Cache penetration defense with DB fallback to avoid false-negative after re-seeding data.
         if (productBloomFilter != null && !productBloomFilter.contains(spuId)) {
-            throw new BusinessException("Product not found");
+            spu = spuMapper.selectById(spuId);
+            if (spu == null) {
+                throw new BusinessException("Product not found");
+            }
+            productBloomFilter.add(spuId);
+        } else {
+            spu = spuMapper.selectById(spuId);
         }
-        
-        ProductSpuEntity spu = spuMapper.selectById(spuId);
+
         if (spu == null) {
             throw new BusinessException("Product not found");
         }

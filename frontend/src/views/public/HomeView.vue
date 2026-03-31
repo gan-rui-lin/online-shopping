@@ -6,6 +6,7 @@ import { ArrowRight, Picture } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getCategoryTree } from '@/api/category'
 import { getHotProducts, getPersonalProducts, type RecommendProductVO } from '@/api/recommend'
+import { resolveImageUrl } from '@/utils/image'
 import type { CategoryVO, ProductSimpleVO } from '@/types/product'
 import ProductCard from '@/components/ProductCard.vue'
 
@@ -164,7 +165,7 @@ onMounted(async () => {
                   class="mini-product"
                   @click.stop="router.push(`/products/${item.spuId}`)"
                 >
-                  <el-image :src="item.mainImage" fit="cover" lazy>
+                  <el-image :src="resolveImageUrl(item.mainImage)" fit="cover" lazy>
                     <template #error>
                       <div class="mini-placeholder">
                         <el-icon><Picture /></el-icon>
@@ -186,7 +187,7 @@ onMounted(async () => {
                   class="mini-product"
                   @click.stop="router.push(`/products/${item.spuId}`)"
                 >
-                  <el-image :src="item.mainImage" fit="cover" lazy>
+                  <el-image :src="resolveImageUrl(item.mainImage)" fit="cover" lazy>
                     <template #error>
                       <div class="mini-placeholder">
                         <el-icon><Picture /></el-icon>
