@@ -9,7 +9,6 @@ import { generateDescription, generateSellingPoints, generateTitle, getProductEv
 import { getFavoriteList, toggleFavorite } from '@/api/favorite'
 import { clearBrowseHistory, getBrowseHistory } from '@/api/behavior'
 import { createShoppingPlan, executeShoppingPlan, getShoppingPlanList } from '@/api/plan'
-import { getCategoryTree } from '@/api/category'
 import { resolveImageUrl } from '@/utils/image'
 import type {
   AgentTaskCreateDTO,
@@ -34,8 +33,6 @@ const ragHistory = ref<ChatMessageVO[]>([])
 
 const agentTaskType = ref<'NECESSITY' | 'INTENTION'>('NECESSITY')
 const necessityForm = ref({
-  requiredCategoryId: undefined as number | undefined,
-  requiredCategoryName: '',
   frequency: '每月一次',
   bindSpuId: undefined as number | undefined,
   quantity: 1,
@@ -61,7 +58,6 @@ const aiEvaluation = ref<ProductEvaluationVO>()
 const favorites = ref<FavoriteVO[]>([])
 const histories = ref<BrowseHistoryVO[]>([])
 const plans = ref<ShoppingPlanVO[]>([])
-const categories = ref<Array<{ id: number; categoryName: string }>>([])
 
 const loading = ref(false)
 
@@ -102,7 +98,6 @@ const bindProductOptions = computed(() => {
   return Array.from(map.entries()).map(([spuId, meta]) => ({ spuId, ...meta }))
 })
 
-const categoryOptions = computed(() => categories.value)
 
 const aiProductOptions = computed(() => {
   const source = aiSourceType.value
@@ -198,10 +193,6 @@ function renderMarkdown(mdText: string): string {
 const aiReviewSummaryHtml = computed(() => renderMarkdown(aiReviewSummary.value?.summary || ''))
 const ragAnswerHtml = computed(() => renderMarkdown(ragAnswer.value || ''))
 
-function syncCategoryName() {
-  const matched = categories.value.find((item) => item.id === necessityForm.value.requiredCategoryId)
-  necessityForm.value.requiredCategoryName = matched?.categoryName || ''
-}
 
 function selectRagProduct(item: { uiKey: string }) {
   if (ragSelectedKeys.value.includes(item.uiKey)) {
@@ -225,28 +216,15 @@ function selectAiProduct(item: { spuId: number; uiKey: string }) {
 }
 
 async function loadExtraPanels() {
-  const [favRes, histRes, planRes, categoryTree] = await Promise.all([
+  const [favRes, histRes, planRes] = await Promise.all([
     getFavoriteList(1, 6).catch(() => ({ list: [] } as any)),
     getBrowseHistory(1, 6).catch(() => ({ list: [] } as any)),
     getShoppingPlanList().catch(() => []),
-    getCategoryTree().catch(() => []),
   ])
 
   favorites.value = favRes.list || []
   histories.value = histRes.list || []
   plans.value = planRes || []
-
-  const flattened: Array<{ id: number; categoryName: string }> = []
-  const walk = (nodes: any[]) => {
-    nodes.forEach((node) => {
-      flattened.push({ id: node.id, categoryName: node.categoryName })
-      if (node.children?.length) {
-        walk(node.children)
-      }
-    })
-  }
-  walk(categoryTree)
-  categories.value = flattened
 
   const firstRagItem = ragProductOptions.value[0]
   if (firstRagItem && ragSelectedKeys.value.length === 0) {
@@ -302,19 +280,20 @@ watch(ragProductOptions, (options) => {
 
 async function runAgentTask() {
   if (agentTaskType.value === 'NECESSITY') {
-    if (!necessityForm.value.requiredCategoryId || !necessityForm.value.bindSpuId) {
-      ElMessage.warning('必需品代购需要先选择类目和绑定商品')
+    if (!necessityForm.value.bindSpuId) {
+      ElMessage.warning('必需品代购需要先选择绑定商品')
       return
     }
-    syncCategoryName()
+    const bindItem = bindProductOptions.value.find((item) => item.spuId === necessityForm.value.bindSpuId)
+    const keyword = bindItem?.title || '必需品'
     loading.value = true
     try {
       await createShoppingPlan({
         planName: `定期补货-${Date.now()}`,
-        remark: `频次：${necessityForm.value.frequency}`,
+        remark: `频次：${necessityForm.value.frequency}；商品：${keyword}`,
         items: [
           {
-            categoryId: necessityForm.value.requiredCategoryId,
+            keyword,
             quantity: necessityForm.value.quantity || 1,
           },
         ],
@@ -492,9 +471,6 @@ onMounted(loadExtraPanels)
             </el-select>
 
             <template v-if="agentTaskType === 'NECESSITY'">
-              <el-select v-model="necessityForm.requiredCategoryId" placeholder="必需品类目" @change="syncCategoryName">
-                <el-option v-for="item in categoryOptions" :key="item.id" :label="item.categoryName" :value="item.id" />
-              </el-select>
               <el-select v-model="necessityForm.frequency" placeholder="频次">
                 <el-option label="每周一次" value="每周一次" />
                 <el-option label="每半月一次" value="每半月一次" />
@@ -505,17 +481,29 @@ onMounted(loadExtraPanels)
             </template>
 
             <template v-else>
-              <div class="intention-fields">
-                <el-input v-model="intentionForm.productName" placeholder="商品名称，如：蓝牙耳机" />
-                <el-input
-                  v-model="intentionForm.requirementPreference"
-                  type="textarea"
-                  :rows="2"
-                  resize="none"
-                  placeholder="需求、偏好，如：降噪、通勤、长续航"
-                />
+              <div class="intention-panel">
+                <div class="intention-main">
+                  <div class="intention-card">
+                    <div class="intention-label">想买什么</div>
+                    <el-input v-model="intentionForm.productName" placeholder="商品名称，如：蓝牙耳机" clearable />
+                  </div>
+                  <div class="intention-card">
+                    <div class="intention-label">需求偏好</div>
+                    <el-input
+                      v-model="intentionForm.requirementPreference"
+                      type="textarea"
+                      :rows="3"
+                      resize="none"
+                      placeholder="需求、偏好，如：降噪、通勤、长续航"
+                    />
+                  </div>
+                </div>
+                <div class="intention-card budget">
+                  <div class="intention-label">预算上限</div>
+                  <el-input-number v-model="intentionForm.budgetLimit" :min="1" controls-position="right" placeholder="预算上限" />
+                  <span class="budget-tip">可选</span>
+                </div>
               </div>
-              <el-input-number v-model="intentionForm.budgetLimit" :min="1" controls-position="right" placeholder="预算上限" />
             </template>
 
             <el-button type="primary" :loading="loading" @click="runAgentTask">
@@ -837,9 +825,64 @@ onMounted(loadExtraPanels)
   margin-bottom: 16px;
 }
 
-.intention-fields {
+.intention-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: linear-gradient(120deg, #fff7ed 0%, #fffaf0 100%);
+}
+
+.intention-main {
   display: grid;
   gap: 10px;
+}
+
+.intention-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+}
+
+.intention-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.intention-card :deep(.el-input__wrapper) {
+  border-radius: 10px;
+}
+
+.intention-card :deep(.el-textarea__inner) {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.intention-card :deep(.el-input-number) {
+  width: 100%;
+}
+
+.budget {
+  align-content: start;
+}
+
+.budget-tip {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .intention-panel {
+    grid-template-columns: 1fr;
+  }
 }
 
 .agent-product-cell {

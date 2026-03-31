@@ -142,31 +142,14 @@ public class AgentService {
             .eq(ProductSpuEntity::getStatus, 1)
             .eq(ProductSpuEntity::getAuditStatus, 1)
             .orderByDesc(ProductSpuEntity::getSalesCount)
-            .last("LIMIT 30");
+            .last("LIMIT 200");
         if (dto.getBudgetLimit() != null) {
             query.le(ProductSpuEntity::getMinPrice, dto.getBudgetLimit());
         }
         List<ProductSpuEntity> pool = spuMapper.selectList(query);
-
-        List<String> tokens = tokenizeKeywords(dto.getIntentRequirement() + " " + nullSafe(dto.getPreference()));
-        List<ProductSpuEntity> candidates = pool.stream()
-            .map(spu -> Map.entry(spu, matchScore(spu, tokens)))
-            .filter(entry -> entry.getValue() > 0)
-            .sorted((a, b) -> {
-                int byScore = Integer.compare(b.getValue(), a.getValue());
-                if (byScore != 0) {
-                    return byScore;
-                }
-                Integer aSales = a.getKey().getSalesCount() == null ? 0 : a.getKey().getSalesCount();
-                Integer bSales = b.getKey().getSalesCount() == null ? 0 : b.getKey().getSalesCount();
-                return Integer.compare(bSales, aSales);
-            })
-            .limit(6)
-            .map(Map.Entry::getKey)
-            .collect(Collectors.toList());
-
+        List<ProductSpuEntity> candidates = selectByAi(dto, pool);
         if (candidates.isEmpty()) {
-            throw new BusinessException("No matching products found, please refine your requirement");
+            return List.of();
         }
 
         List<AgentRecommendationVO> recs = new ArrayList<>();
@@ -185,42 +168,56 @@ public class AgentService {
         return recs;
     }
 
-    private List<String> tokenizeKeywords(String text) {
-        if (!StringUtils.hasText(text)) {
+    private List<ProductSpuEntity> selectByAi(AgentTaskCreateDTO dto, List<ProductSpuEntity> pool) {
+        if (pool == null || pool.isEmpty()) {
             return List.of();
         }
-        String normalized = text
-            .replace('，', ' ')
-            .replace('。', ' ')
-            .replace('、', ' ')
-            .replace(',', ' ')
-            .replace('.', ' ')
-            .replace('/', ' ')
-            .replace('|', ' ')
-            .trim();
-        return Arrays.stream(normalized.split("\\s+"))
-            .map(String::trim)
-            .filter(s -> s.length() >= 2)
-            .limit(8)
+
+        int batchSize = 200;
+        Set<Long> selectedIds = new HashSet<>();
+        for (int i = 0; i < pool.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, pool.size());
+            List<ProductSpuEntity> batch = pool.subList(i, end);
+            selectedIds.addAll(selectIdsByAi(dto, batch));
+        }
+
+        if (selectedIds.isEmpty()) {
+            return List.of();
+        }
+
+        return pool.stream()
+            .filter(spu -> selectedIds.contains(spu.getId()))
             .collect(Collectors.toList());
     }
 
-    private int matchScore(ProductSpuEntity spu, List<String> tokens) {
-        if (tokens.isEmpty()) {
-            return 0;
-        }
-        String haystack = (nullSafe(spu.getTitle()) + " " + nullSafe(spu.getSubTitle()) + " " + nullSafe(spu.getDetailText())).toLowerCase(Locale.ROOT);
-        int score = 0;
-        for (String token : tokens) {
-            String t = token.toLowerCase(Locale.ROOT);
-            if (haystack.contains(t)) {
-                score += 2;
+    private Set<Long> selectIdsByAi(AgentTaskCreateDTO dto, List<ProductSpuEntity> batch) {
+        try {
+            String candidates = batch.stream()
+                .map(spu -> "spuId=" + spu.getId() + ", title=" + nullSafe(spu.getTitle()))
+                .collect(Collectors.joining("\n"));
+            String systemPrompt = "你是电商导购助手。根据用户需求从候选商品名称中筛选相关商品。" +
+                "仅返回 JSON 数组，格式为 [123,456]，无匹配返回 []。";
+            String userPrompt = "用户需求：" + dto.getIntentRequirement() + "\n偏好：" + nullSafe(dto.getPreference()) +
+                "\n预算上限：" + (dto.getBudgetLimit() == null ? "不限" : dto.getBudgetLimit()) +
+                "\n候选商品：\n" + candidates;
+            String aiText = aiClient.chat(systemPrompt, userPrompt);
+            JsonNode root = objectMapper.readTree(aiText);
+            if (!root.isArray()) {
+                return Set.of();
             }
-            if (nullSafe(spu.getTitle()).toLowerCase(Locale.ROOT).contains(t)) {
-                score += 2;
+
+            Set<Long> ids = new HashSet<>();
+            for (JsonNode node : root) {
+                long id = node.asLong(0L);
+                if (id > 0) {
+                    ids.add(id);
+                }
             }
+            return ids;
+        } catch (Exception ex) {
+            log.warn("AI selection failed, fallback to empty result", ex);
+            return Set.of();
         }
-        return score;
     }
 
     private Map<Long, String> generateAiReasons(AgentTaskCreateDTO dto, List<AgentRecommendationVO> recs) {

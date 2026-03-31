@@ -103,7 +103,7 @@ export default {
     tabAgent: 'Agent Shopping',
     tabCopywriting: 'AI Copywriting',
     askQuestion: 'Ask',
-    runTask: 'Generate Task',
+    runTask: 'Smart Search',
     addToCart: 'Add to Cart',
     generate: 'Generate',
     questionRequired: 'Please input a question',
