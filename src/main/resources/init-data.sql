@@ -142,14 +142,14 @@ INSERT INTO product_image (id, spu_id, sku_id, image_url, image_type, sort_order
 (9208, 9001, 9103, '/cdn/images/61lsexTCOhL._AC_SX522_.jpg', 3, 0, '2026-03-31 09:06:00'),
 (9209, 9002, 9105, '/cdn/images/AirPods Pro 2.jpg', 3, 0, '2026-03-31 09:06:30');
 
--- 9. Optional profile data for lee77
+-- 9. Optional profile data for buyer
 INSERT INTO user_address (
     id, user_id, receiver_name, receiver_phone, province, city, district,
     detail_address, postal_code, is_default, tag_name
 ) VALUES
 (9300, 7700, 'Lee', '13900007777', 'Guangdong', 'Shenzhen', 'Nanshan', 'No. 188, Keji South 12th Road, Building A, Room 1203', '518000', 1, 'Home');
 
--- 10. Favorites for lee77 (multiple records)
+-- 10. Favorites for buyer (multiple records)
 INSERT INTO user_favorite (id, user_id, spu_id, create_time) VALUES
 (9400, 7700, 9000, '2026-03-30 09:20:00'),
 (9401, 7700, 9001, '2026-03-30 09:42:00'),
@@ -157,7 +157,7 @@ INSERT INTO user_favorite (id, user_id, spu_id, create_time) VALUES
 (9403, 7700, 9004, '2026-03-30 21:18:00'),
 (9404, 7700, 9005, '2026-03-31 08:12:00');
 
--- 11. Browse history for lee77 (multiple records)
+-- 11. Browse history for buyer (multiple records)
 INSERT INTO user_browse_history (id, user_id, spu_id, browse_time) VALUES
 (9500, 7700, 9000, '2026-03-29 20:01:10'),
 (9501, 7700, 9002, '2026-03-29 20:03:52'),
@@ -172,7 +172,7 @@ INSERT INTO user_browse_history (id, user_id, spu_id, browse_time) VALUES
 (9510, 7700, 9005, '2026-03-31 08:09:33'),
 (9511, 7700, 9000, '2026-03-31 08:34:55');
 
--- 12. Optional cart sample for lee77
+-- 12. Optional cart sample for buyer
 INSERT INTO cart_item (id, user_id, sku_id, quantity, checked) VALUES
 (9600, 7700, 9100, 1, 1),
 (9601, 7700, 9105, 1, 1),
