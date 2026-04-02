@@ -166,6 +166,12 @@ class BackendSpecFlowIntegrationTest {
         assertNotNull(spu);
         Long spuId = spu.getId();
 
+        mockMvc.perform(put("/api/products/{spuId}/on-shelf", spuId)
+                .header("Authorization", bearer(merchantToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(500))
+            .andExpect(jsonPath("$.message").value("Only approved products can be put on shelf"));
+
         mockMvc.perform(post("/api/admin/product/{spuId}/approve", spuId)
                 .header("Authorization", bearer(adminToken)))
             .andExpect(status().isOk())
@@ -278,6 +284,25 @@ class BackendSpecFlowIntegrationTest {
                       "anonymousFlag":0
                     }
                     """.formatted(orderItem.getId())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        MvcResult reviewListResult = mockMvc.perform(get("/api/review/product/{spuId}", spuId)
+                .param("pageNum", "1")
+                .param("pageSize", "10"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andReturn();
+        Long reviewId = parseBody(reviewListResult).path("data").path("list").get(0).path("reviewId").asLong();
+
+        mockMvc.perform(post("/api/review/{reviewId}/reply", reviewId)
+                .header("Authorization", bearer(merchantToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "replyContent":"Thanks for your feedback"
+                    }
+                    """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200));
 
@@ -395,6 +420,264 @@ class BackendSpecFlowIntegrationTest {
                 .param("reason", "test cancel"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    @DisplayName("规格分支流程测试：退款申请-商家同意/拒绝")
+    void shouldProcessRefundApproveAndReject() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String buyerUsername = "buyer_refund_" + suffix;
+        String merchantUsername = "merchant_refund_" + suffix;
+        String password = DEFAULT_TEST_PASSWORD;
+
+        register(buyerUsername, password, "BuyerRefund " + suffix);
+        register(merchantUsername, password, "MerchantRefund " + suffix);
+
+        String buyerToken = loginAndGetToken(buyerUsername, password);
+        String merchantToken = loginAndGetToken(merchantUsername, password);
+        String adminToken = loginAndGetToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+
+        String shopName = "RefundShop-" + suffix;
+        mockMvc.perform(post("/api/merchant/apply")
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "shopName":"%s",
+                      "businessLicenseNo":"BLR-%s",
+                      "contactName":"Owner %s",
+                      "contactPhone":"%s"
+                    }
+                    """.formatted(shopName, suffix, suffix, DEFAULT_CONTACT_PHONE)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        MvcResult applyListResult = mockMvc.perform(get("/api/merchant/apply/list")
+                .header("Authorization", bearer(adminToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andReturn();
+        Long applyId = null;
+        for (JsonNode node : parseBody(applyListResult).path("data")) {
+            if (shopName.equals(node.path("shopName").asText())) {
+                applyId = node.path("id").asLong();
+                break;
+            }
+        }
+        assertNotNull(applyId);
+
+        mockMvc.perform(post("/api/merchant/apply/{id}/audit", applyId)
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "auditStatus":1,
+                      "remark":"approved by refund test"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        merchantToken = loginAndGetToken(merchantUsername, password);
+
+        String productTitle = "Refund Flow Product " + suffix;
+        mockMvc.perform(post("/api/products")
+                .header("Authorization", bearer(merchantToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "categoryId":%d,
+                      "brandName":"RefundBrand",
+                      "title":"%s",
+                      "subTitle":"Refund Device",
+                      "mainImage":"https://example.com/refund.png",
+                      "detailText":"refund test product",
+                      "skuList":[
+                        {
+                          "skuCode":"RSKU-%s",
+                          "skuName":"RefundSKU",
+                          "specJson":"{\\"color\\":\\"white\\"}",
+                          "price":299.00,
+                          "originPrice":399.00,
+                          "stock":20,
+                          "imageUrl":"https://example.com/refund-sku.png"
+                        }
+                      ]
+                    }
+                    """.formatted(DEFAULT_CATEGORY_ID, productTitle, suffix)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        ProductSpuEntity spu = productSpuMapper.selectOne(
+            new LambdaQueryWrapper<ProductSpuEntity>().eq(ProductSpuEntity::getTitle, productTitle));
+        assertNotNull(spu);
+        Long spuId = spu.getId();
+
+        mockMvc.perform(post("/api/admin/product/{spuId}/approve", spuId)
+                .header("Authorization", bearer(adminToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(put("/api/products/{spuId}/on-shelf", spuId)
+                .header("Authorization", bearer(merchantToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(post("/api/address")
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "receiverName":"Refund Receiver",
+                      "receiverPhone":"%s",
+                      "province":"广东省",
+                      "city":"深圳市",
+                      "district":"南山区",
+                      "detailAddress":"退款路 2 号",
+                      "isDefault":1,
+                      "tagName":"home"
+                    }
+                    """.formatted(DEFAULT_RECEIVER_PHONE)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        MvcResult addressListResult = mockMvc.perform(get("/api/address/list")
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andReturn();
+        Long addressId = parseBody(addressListResult).path("data").get(0).path("id").asLong();
+
+        ProductSkuEntity sku = productSkuMapper.selectOne(
+            new LambdaQueryWrapper<ProductSkuEntity>().eq(ProductSkuEntity::getSpuId, spuId));
+        assertNotNull(sku);
+
+        mockMvc.perform(post("/api/cart/add")
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "skuId":%d,
+                      "quantity":1
+                    }
+                    """.formatted(sku.getId())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        MvcResult submitOrderResult = mockMvc.perform(post("/api/order/submit")
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "addressId":%d,
+                      "remark":"refund approve flow",
+                      "cartSkuIds":[%d]
+                    }
+                    """.formatted(addressId, sku.getId())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andReturn();
+        String orderNoApprove = parseBody(submitOrderResult).path("data").path("orderNo").asText();
+
+        mockMvc.perform(post("/api/order/{orderNo}/pay", orderNoApprove)
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+        mockMvc.perform(post("/api/order/{orderNo}/deliver", orderNoApprove)
+                .header("Authorization", bearer(merchantToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+        mockMvc.perform(post("/api/order/{orderNo}/confirm-receive", orderNoApprove)
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(post("/api/order/{orderNo}/refund/apply", orderNoApprove)
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "reason":"need refund approve flow"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(post("/api/order/{orderNo}/refund/approve", orderNoApprove)
+                .header("Authorization", bearer(merchantToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(get("/api/order/{orderNo}", orderNoApprove)
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.orderStatus").value(6))
+            .andExpect(jsonPath("$.data.payStatus").value(2));
+
+        mockMvc.perform(post("/api/cart/add")
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "skuId":%d,
+                      "quantity":1
+                    }
+                    """.formatted(sku.getId())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        MvcResult submitOrderResult2 = mockMvc.perform(post("/api/order/submit")
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "addressId":%d,
+                      "remark":"refund reject flow",
+                      "cartSkuIds":[%d]
+                    }
+                    """.formatted(addressId, sku.getId())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andReturn();
+        String orderNoReject = parseBody(submitOrderResult2).path("data").path("orderNo").asText();
+
+        mockMvc.perform(post("/api/order/{orderNo}/pay", orderNoReject)
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+        mockMvc.perform(post("/api/order/{orderNo}/deliver", orderNoReject)
+                .header("Authorization", bearer(merchantToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+        mockMvc.perform(post("/api/order/{orderNo}/confirm-receive", orderNoReject)
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(post("/api/order/{orderNo}/refund/apply", orderNoReject)
+                .header("Authorization", bearer(buyerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "reason":"need refund reject flow"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(post("/api/order/{orderNo}/refund/reject", orderNoReject)
+                .header("Authorization", bearer(merchantToken))
+                .param("reason", "not eligible"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(get("/api/order/{orderNo}", orderNoReject)
+                .header("Authorization", bearer(buyerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.orderStatus").value(3))
+            .andExpect(jsonPath("$.data.payStatus").value(1));
     }
 
     private void register(String username, String password, String nickname) throws Exception {
