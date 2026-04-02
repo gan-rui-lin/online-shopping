@@ -4,6 +4,7 @@ import com.helloworld.onlineshopping.modules.rag.dto.RagAskDTO;
 import com.helloworld.onlineshopping.modules.rag.service.KnowledgeService;
 import com.helloworld.onlineshopping.modules.rag.service.RagService;
 import com.helloworld.onlineshopping.modules.rag.vo.ChatMessageVO;
+import com.helloworld.onlineshopping.modules.rag.vo.ChatSessionVO;
 import com.helloworld.onlineshopping.modules.rag.vo.RagAnswerVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +32,12 @@ public class RagController {
     @GetMapping("/session/{sessionId}/history")
     public Result<List<ChatMessageVO>> history(@PathVariable Long sessionId) {
         return Result.success(ragService.getChatHistory(sessionId));
+    }
+
+    @Operation(summary = "My chat sessions")
+    @GetMapping("/session/list")
+    public Result<List<ChatSessionVO>> listMySessions() {
+        return Result.success(ragService.listMySessions());
     }
 
     @Operation(summary = "Import product knowledge")

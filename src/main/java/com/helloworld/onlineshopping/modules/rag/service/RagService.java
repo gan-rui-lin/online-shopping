@@ -6,6 +6,7 @@ import com.helloworld.onlineshopping.modules.rag.dto.RagAskDTO;
 import com.helloworld.onlineshopping.modules.rag.entity.*;
 import com.helloworld.onlineshopping.modules.rag.mapper.*;
 import com.helloworld.onlineshopping.modules.rag.vo.ChatMessageVO;
+import com.helloworld.onlineshopping.modules.rag.vo.ChatSessionVO;
 import com.helloworld.onlineshopping.modules.rag.vo.RagAnswerVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -118,10 +119,34 @@ public class RagService {
     }
 
     public List<ChatMessageVO> getChatHistory(Long sessionId) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        AiChatSessionEntity session = sessionMapper.selectById(sessionId);
+        if (session == null || !userId.equals(session.getUserId())) {
+            throw new BusinessException("No permission");
+        }
         return messageMapper.selectList(new LambdaQueryWrapper<AiChatMessageEntity>()
             .eq(AiChatMessageEntity::getSessionId, sessionId).orderByAsc(AiChatMessageEntity::getCreateTime))
             .stream().map(m -> { ChatMessageVO v = new ChatMessageVO(); v.setRole(m.getRole()); v.setContent(m.getContent()); v.setCreateTime(m.getCreateTime()); return v; })
             .collect(Collectors.toList());
+    }
+
+    public List<ChatSessionVO> listMySessions() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        return sessionMapper.selectList(new LambdaQueryWrapper<AiChatSessionEntity>()
+                .eq(AiChatSessionEntity::getUserId, userId)
+                .eq(AiChatSessionEntity::getSessionType, "RAG")
+                .eq(AiChatSessionEntity::getStatus, 1)
+                .orderByDesc(AiChatSessionEntity::getUpdateTime))
+            .stream().map(session -> {
+                ChatSessionVO vo = new ChatSessionVO();
+                vo.setSessionId(session.getId());
+                vo.setTitle(session.getTitle());
+                vo.setSessionType(session.getSessionType());
+                vo.setSpuId(session.getSpuId());
+                vo.setUpdateTime(session.getUpdateTime());
+                vo.setCreateTime(session.getCreateTime());
+                return vo;
+            }).collect(Collectors.toList());
     }
 
     private void saveMessage(Long sessionId, String role, String content) {
