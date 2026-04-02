@@ -90,6 +90,8 @@ public class EsProductService {
         vo.setMinPrice(doc.getMinPrice());
         vo.setMaxPrice(doc.getMaxPrice());
         vo.setSalesCount(doc.getSalesCount());
+        vo.setStatus(doc.getStatus());
+        vo.setAuditStatus(doc.getAuditStatus());
 
         MerchantShopEntity shop = merchantShopMapper.selectById(doc.getShopId());
         vo.setShopName(shop != null ? shop.getShopName() : "");

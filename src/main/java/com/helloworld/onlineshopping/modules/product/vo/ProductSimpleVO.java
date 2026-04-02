@@ -12,5 +12,7 @@ public class ProductSimpleVO {
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private Integer salesCount;
+    private Integer status;
+    private Integer auditStatus;
     private String shopName;
 }
