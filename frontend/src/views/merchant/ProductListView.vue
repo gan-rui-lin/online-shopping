@@ -1,4 +1,3 @@
-            <el-image :src="row.mainImage" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -9,7 +8,8 @@ import type { ProductSimpleVO } from '@/types/product'
 import { ProductStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
 import { resolveImageUrl } from '@/utils/image'
-import { getProductStatusLabel } from '@/utils/i18nStatus'
+import { getProductStatusLabel, getProductAuditStatusLabel } from '@/utils/i18nStatus'
+
 const router = useRouter()
 const list = ref<ProductSimpleVO[]>([])
 const total = ref(0)
@@ -37,12 +37,29 @@ function handlePageChange(page: number) {
   fetchProducts()
 }
 
-async function handleOnShelf(spuId: number) {
+function canOnShelf(row: ProductSimpleVO) {
+  return row.status !== ProductStatus.ON_SHELF && row.auditStatus === 1
+}
+
+function onShelfDisabledReason(row: ProductSimpleVO) {
+  if (row.auditStatus !== 1) {
+    return t('merchant.onShelfNeedAudit')
+  }
+  return ''
+}
+
+async function handleOnShelf(row: ProductSimpleVO) {
+  if (!canOnShelf(row)) {
+    ElMessage.warning(onShelfDisabledReason(row))
+    return
+  }
   try {
-    await onShelfProduct(spuId)
+    await onShelfProduct(row.spuId)
     ElMessage.success(t('merchant.productOnShelf'))
     fetchProducts()
-  } catch { /* handled */ }
+  } catch {
+    // handled
+  }
 }
 
 async function handleOffShelf(spuId: number) {
@@ -50,7 +67,9 @@ async function handleOffShelf(spuId: number) {
     await offShelfProduct(spuId)
     ElMessage.success(t('merchant.productOffShelf'))
     fetchProducts()
-  } catch { /* handled */ }
+  } catch {
+    // handled
+  }
 }
 
 async function handleDelete(spuId: number) {
@@ -59,11 +78,19 @@ async function handleDelete(spuId: number) {
     await deleteProduct(spuId)
     ElMessage.success(t('merchant.productDeleted'))
     fetchProducts()
-  } catch { /* handled */ }
+  } catch {
+    // handled
+  }
 }
 
 function getStatusType(status: number) {
   return status === ProductStatus.ON_SHELF ? 'success' : status === ProductStatus.DRAFT ? 'info' : 'warning'
+}
+
+function getAuditStatusType(auditStatus: number) {
+  if (auditStatus === 1) return 'success'
+  if (auditStatus === 2) return 'danger'
+  return 'warning'
 }
 
 onMounted(fetchProducts)
@@ -83,7 +110,11 @@ onMounted(fetchProducts)
         <el-table-column :label="t('merchant.image')" width="80">
           <template #default="{ row }">
             <el-image :src="resolveImageUrl(row.mainImage)" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
-              <template #error><div style="width: 48px; height: 48px; background: #f5f7fa; display: flex; align-items: center; justify-content: center;"><el-icon><Picture /></el-icon></div></template>
+              <template #error>
+                <div style="width: 48px; height: 48px; background: #f5f7fa; display: flex; align-items: center; justify-content: center;">
+                  <el-icon><Picture /></el-icon>
+                </div>
+              </template>
             </el-image>
           </template>
         </el-table-column>
@@ -93,16 +124,24 @@ onMounted(fetchProducts)
             <PriceDisplay :price="row.minPrice" size="small" />
           </template>
         </el-table-column>
+        <el-table-column :label="t('merchant.auditStatus')" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getAuditStatusType(row.auditStatus)" size="small">{{ getProductAuditStatusLabel(t, row.auditStatus) }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('merchant.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">{{ getProductStatusLabel(t, row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="salesCount" :label="t('merchant.sales')" width="80" />
-        <el-table-column :label="t('buyer.action')" width="240" fixed="right">
+        <el-table-column :label="t('buyer.action')" width="260" fixed="right">
           <template #default="{ row }">
             <el-button text type="primary" size="small" @click="router.push(`/merchant/products/edit/${row.spuId}`)">{{ t('merchant.edit') }}</el-button>
-            <el-button v-if="row.status !== ProductStatus.ON_SHELF" text type="success" size="small" @click="handleOnShelf(row.spuId)">{{ t('merchant.onShelfAction') }}</el-button>
+            <el-tooltip v-if="!canOnShelf(row) && row.status !== ProductStatus.ON_SHELF" :content="onShelfDisabledReason(row)">
+              <el-button text type="success" size="small" disabled>{{ t('merchant.onShelfAction') }}</el-button>
+            </el-tooltip>
+            <el-button v-else-if="row.status !== ProductStatus.ON_SHELF" text type="success" size="small" @click="handleOnShelf(row)">{{ t('merchant.onShelfAction') }}</el-button>
             <el-button v-if="row.status === ProductStatus.ON_SHELF" text type="warning" size="small" @click="handleOffShelf(row.spuId)">{{ t('merchant.offShelfAction') }}</el-button>
             <el-button text type="danger" size="small" @click="handleDelete(row.spuId)">{{ t('merchant.delete') }}</el-button>
           </template>

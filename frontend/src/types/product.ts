@@ -8,6 +8,8 @@ export interface ProductSimpleVO {
   minPrice: number
   maxPrice: number
   salesCount: number
+  status: number
+  auditStatus: number
   shopName: string
 }
 

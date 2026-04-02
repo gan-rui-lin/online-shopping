@@ -134,6 +134,18 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/merchant/OrderListView.vue'),
         meta: { titleKey: 'routeTitle.merchantOrders' },
       },
+      {
+        path: 'intelligence',
+        name: 'MerchantIntelligence',
+        component: () => import('@/views/merchant/IntelligenceView.vue'),
+        meta: { titleKey: 'routeTitle.merchantIntelligence' },
+      },
+      {
+        path: 'reviews',
+        name: 'MerchantReviews',
+        component: () => import('@/views/merchant/ReviewManageView.vue'),
+        meta: { titleKey: 'routeTitle.merchantReviews' },
+      },
     ],
   },
   {

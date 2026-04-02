@@ -15,6 +15,8 @@ const menuItems = [
   { path: '/merchant/shop', label: 'merchantLayout.shopInfo', icon: 'Shop' },
   { path: '/merchant/products', label: 'common.products', icon: 'Goods' },
   { path: '/merchant/orders', label: 'publicLayout.orders', icon: 'Document' },
+  { path: '/merchant/intelligence', label: 'merchantLayout.intelligence', icon: 'MagicStick' },
+  { path: '/merchant/reviews', label: 'merchantLayout.reviews', icon: 'ChatDotSquare' },
 ]
 
 function goHome() {

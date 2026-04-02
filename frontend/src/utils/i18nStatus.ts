@@ -32,6 +32,15 @@ export function getProductStatusLabel(t: ComposerTranslation, status: number): s
   return t(map[status] || 'common.unknown')
 }
 
+export function getProductAuditStatusLabel(t: ComposerTranslation, status: number): string {
+  const map: Record<number, string> = {
+    0: 'status.productAudit.pending',
+    1: 'status.productAudit.approved',
+    2: 'status.productAudit.rejected',
+  }
+  return t(map[status] || 'common.unknown')
+}
+
 export function getMerchantApplyStatusLabel(t: ComposerTranslation, status: number): string {
   const map: Record<number, string> = {
     [MerchantApplyStatus.PENDING]: 'status.merchantApply.pending',
