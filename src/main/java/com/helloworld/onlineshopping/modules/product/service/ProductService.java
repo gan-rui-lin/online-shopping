@@ -233,6 +233,8 @@ public class ProductService {
             vo.setMinPrice(spu.getMinPrice());
             vo.setMaxPrice(spu.getMaxPrice());
             vo.setSalesCount(spu.getSalesCount());
+            vo.setStatus(spu.getStatus());
+            vo.setAuditStatus(spu.getAuditStatus());
             MerchantShopEntity shop = shopMapper.selectById(spu.getShopId());
             vo.setShopName(shop != null ? shop.getShopName() : "");
             return vo;
@@ -329,6 +331,9 @@ public class ProductService {
             new LambdaQueryWrapper<MerchantShopEntity>().eq(MerchantShopEntity::getUserId, userId));
         if (shop == null || !shop.getId().equals(spu.getShopId())) {
             throw new BusinessException("No permission to modify this product");
+        }
+        if (status != null && status == 1 && !Integer.valueOf(1).equals(spu.getAuditStatus())) {
+            throw new BusinessException("Only approved products can be put on shelf");
         }
         spu.setStatus(status);
         spuMapper.updateById(spu);
@@ -438,6 +443,8 @@ public class ProductService {
             vo.setMinPrice(spu.getMinPrice());
             vo.setMaxPrice(spu.getMaxPrice());
             vo.setSalesCount(spu.getSalesCount());
+            vo.setStatus(spu.getStatus());
+            vo.setAuditStatus(spu.getAuditStatus());
             vo.setShopName(shop.getShopName());
             return vo;
         }).collect(Collectors.toList());
