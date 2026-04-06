@@ -4,7 +4,9 @@ import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.product.dto.ProductSearchDTO;
+import com.helloworld.onlineshopping.modules.product.entity.CategoryEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
+import com.helloworld.onlineshopping.modules.product.mapper.CategoryMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import com.helloworld.onlineshopping.modules.product.vo.ProductSimpleVO;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,10 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,9 +39,10 @@ public class EsProductService {
     private final EsProductRepository esProductRepository;
     private final ProductSpuMapper productSpuMapper;
     private final MerchantShopMapper merchantShopMapper;
+    private final CategoryMapper categoryMapper;
 
     public PageResult<ProductSimpleVO> searchProducts(ProductSearchDTO dto) {
-        NativeQueryBuilderHelper helper = new NativeQueryBuilderHelper(dto);
+        NativeQueryBuilderHelper helper = new NativeQueryBuilderHelper(dto, getCategoryIdsForSearch(dto.getCategoryId()));
         NativeQuery query = helper.build();
 
         SearchHits<EsProductDocument> hits = elasticsearchOperations.search(query, EsProductDocument.class);
@@ -110,12 +117,51 @@ public class EsProductService {
         return origin;
     }
 
+    private List<Long> getCategoryIdsForSearch(Long categoryId) {
+        if (categoryId == null) {
+            return List.of();
+        }
+
+        List<CategoryEntity> categories = categoryMapper.selectList(
+            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<CategoryEntity>()
+                .eq(CategoryEntity::getStatus, 1));
+        if (categories == null || categories.isEmpty()) {
+            return List.of(categoryId);
+        }
+
+        Map<Long, List<Long>> childrenMap = categories.stream()
+            .collect(Collectors.groupingBy(
+                CategoryEntity::getParentId,
+                Collectors.mapping(CategoryEntity::getId, Collectors.toList())
+            ));
+
+        List<Long> result = new ArrayList<>();
+        Set<Long> visited = new HashSet<>();
+        ArrayDeque<Long> queue = new ArrayDeque<>();
+        queue.add(categoryId);
+
+        while (!queue.isEmpty()) {
+            Long current = queue.poll();
+            if (!visited.add(current)) {
+                continue;
+            }
+            result.add(current);
+            for (Long childId : childrenMap.getOrDefault(current, List.of())) {
+                queue.add(childId);
+            }
+        }
+
+        return result;
+    }
+
     private static class NativeQueryBuilderHelper {
 
         private final ProductSearchDTO dto;
+        private final List<Long> categoryIds;
 
-        private NativeQueryBuilderHelper(ProductSearchDTO dto) {
+        private NativeQueryBuilderHelper(ProductSearchDTO dto, List<Long> categoryIds) {
             this.dto = dto;
+            this.categoryIds = categoryIds == null ? List.of() : categoryIds;
         }
 
         private NativeQuery build() {
@@ -130,7 +176,17 @@ public class EsProductService {
                             .fields("title^3", "subTitle^2", "brandName")));
                     }
                     if (dto.getCategoryId() != null) {
-                        b.filter(f -> f.term(t -> t.field("categoryId").value(dto.getCategoryId())));
+                        if (categoryIds.isEmpty()) {
+                            b.mustNot(mn -> mn.exists(e -> e.field("spuId")));
+                        } else if (categoryIds.size() == 1) {
+                            b.filter(f -> f.term(t -> t.field("categoryId").value(categoryIds.get(0))));
+                        } else {
+                            b.filter(f -> f.terms(t -> t
+                                .field("categoryId")
+                                .terms(v -> v.value(categoryIds.stream()
+                                    .map(co.elastic.clients.elasticsearch._types.FieldValue::of)
+                                    .collect(Collectors.toList())))));
+                        }
                     }
                     if (StringUtils.hasText(dto.getBrandName())) {
                         b.filter(f -> f.term(t -> t.field("brandName").value(dto.getBrandName())));

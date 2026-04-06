@@ -20,6 +20,8 @@ import com.helloworld.onlineshopping.modules.product.dto.ProductSpuUpdateDTO;
 import com.helloworld.onlineshopping.modules.product.entity.ProductImageEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSkuEntity;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
+import com.helloworld.onlineshopping.modules.product.entity.CategoryEntity;
+import com.helloworld.onlineshopping.modules.product.mapper.CategoryMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductImageMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSkuMapper;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
@@ -45,7 +47,11 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.UUID;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,6 +62,7 @@ public class ProductService {
     private final ProductSpuMapper spuMapper;
     private final ProductSkuMapper skuMapper;
     private final ProductImageMapper imageMapper;
+    private final CategoryMapper categoryMapper;
     private final MerchantShopMapper shopMapper;
     private final BrowseHistoryService browseHistoryService;
     private final RecommendEventPublisher recommendEventPublisher;
@@ -198,7 +205,11 @@ public class ProductService {
             wrapper.like(ProductSpuEntity::getTitle, dto.getKeyword());
         }
         if (dto.getCategoryId() != null) {
-            wrapper.eq(ProductSpuEntity::getCategoryId, dto.getCategoryId());
+            List<Long> categoryIds = getCategoryIdsForSearch(dto.getCategoryId());
+            if (categoryIds.isEmpty()) {
+                return PageResult.of(List.of(), 0, dto.getPageNum(), dto.getPageSize());
+            }
+            wrapper.in(ProductSpuEntity::getCategoryId, categoryIds);
         }
         if (StringUtils.hasText(dto.getBrandName())) {
             wrapper.eq(ProductSpuEntity::getBrandName, dto.getBrandName());
@@ -241,6 +252,42 @@ public class ProductService {
         }).collect(Collectors.toList());
 
         return PageResult.of(voList, result.getTotal(), dto.getPageNum(), dto.getPageSize());
+    }
+
+    private List<Long> getCategoryIdsForSearch(Long categoryId) {
+        if (categoryId == null) {
+            return List.of();
+        }
+
+        List<CategoryEntity> categories = categoryMapper.selectList(
+            new LambdaQueryWrapper<CategoryEntity>().eq(CategoryEntity::getStatus, 1));
+        if (categories == null || categories.isEmpty()) {
+            return List.of(categoryId);
+        }
+
+        Map<Long, List<Long>> childrenMap = categories.stream()
+            .collect(Collectors.groupingBy(
+                CategoryEntity::getParentId,
+                Collectors.mapping(CategoryEntity::getId, Collectors.toList())
+            ));
+
+        List<Long> result = new ArrayList<>();
+        Set<Long> visited = new HashSet<>();
+        ArrayDeque<Long> queue = new ArrayDeque<>();
+        queue.add(categoryId);
+
+        while (!queue.isEmpty()) {
+            Long current = queue.poll();
+            if (!visited.add(current)) {
+                continue;
+            }
+            result.add(current);
+            for (Long childId : childrenMap.getOrDefault(current, List.of())) {
+                queue.add(childId);
+            }
+        }
+
+        return result;
     }
 
     @Cacheable(value = "product:detail", key = "#spuId")
