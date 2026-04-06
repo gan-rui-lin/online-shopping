@@ -1,8 +1,8 @@
-            <el-image :src="row.mainImage" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Picture } from '@element-plus/icons-vue'
 import { searchProducts } from '@/api/product'
 import { approveProduct, rejectProduct } from '@/api/admin'
 import type { ProductSimpleVO } from '@/types/product'
@@ -70,7 +70,11 @@ onMounted(fetchProducts)
         <el-table-column :label="t('merchant.image')" width="80">
           <template #default="{ row }">
             <el-image :src="resolveImageUrl(row.mainImage)" fit="cover" style="width: 48px; height: 48px; border-radius: 4px">
-              <template #error><div style="width: 48px; height: 48px; background: #f5f7fa; display: flex; align-items: center; justify-content: center"><el-icon><Picture /></el-icon></div></template>
+              <template #error>
+                <div style="width: 48px; height: 48px; background: #f5f7fa; display: flex; align-items: center; justify-content: center">
+                  <el-icon><Picture /></el-icon>
+                </div>
+              </template>
             </el-image>
           </template>
         </el-table-column>
