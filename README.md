@@ -1,182 +1,115 @@
 # Online Shopping Platform
 
-A one-stop intelligent e-commerce platform built with Spring Boot 3.
+[中文](README.zh-CN.md) | English
 
-## Tech Stack
+An integrated intelligent e-commerce platform built with Spring Boot 3 + Vue 3, covering multi-role clients (public visitor, buyer, merchant, admin) and AI capabilities (recommendation, shopping plan, RAG, and agent workflows).
 
-- Spring Boot 3.3.4 + MyBatis-Plus 3.5.7
-- Spring Security + JWT
-- MySQL 8 + Redis
-- Knife4j (Swagger)
+## 1. Roles and Capabilities
 
-## Quick Start
+| Role | Client Side | Core Features |
+| --- | --- | --- |
+| Public Visitor | Public storefront | Product search, category filtering, product detail browsing, register/login entry |
+| Buyer | Buyer side | Cart, addresses, order/payment lifecycle, review, favorites, browse history |
+| Merchant | Merchant side | Product create/edit (SPU/SKU), on/off shelf, image binding, order handling, shop operations |
+| Admin | Admin console | Dashboard, merchant audit, product audit, category governance |
+| AI/Agent Modules | Intelligence APIs/pages | Recommendations, shopping plan generation, product knowledge Q&A, agent task orchestration |
 
-### 1. Prerequisites
+## 2. Key Audit Rule
+
+- Newly created merchant products are pending by default (auditStatus = 0).
+- Admin reviews products in the audit page and approves/rejects them.
+- Only approved products can be put on shelf.
+
+## 3. Tech Stack
+
+- Backend: Spring Boot 3.3.4, MyBatis-Plus 3.5.7, Spring Security, JWT
+- Data: MySQL 8, Redis
+- Search: Elasticsearch (toggleable)
+- API docs: Knife4j / Swagger
+- Frontend: Vue 3 + TypeScript + Element Plus (in frontend directory)
+
+## 4. Quick Start
+
+### 4.1 Prerequisites
 
 - JDK 17+
 - MySQL 8.x
 - Redis 6.x+
 
-### 2. Initialize Database
+### 4.2 Initialize Database
 
 ```bash
 mysql -u root -p < src/main/resources/schema.sql
 ```
 
-### 3. Configure Environment Variables
+Windows full reset + seed:
 
-Copy the example and fill in your values:
+```powershell
+./scripts/reset-and-init-db.ps1 -DbPassword "your_mysql_password"
+```
+
+### 4.3 Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Set the variables before running:
+Common variables include DB_URL, DB_USERNAME, DB_PASSWORD, REDIS_HOST, REDIS_PORT, APP_SEARCH_ES_ENABLED, ES_URIS, FILE_UPLOAD_BASE_DIR, FILE_UPLOAD_PUBLIC_URL, JWT_SECRET.
 
-```bash
-export DB_PASSWORD=your_mysql_password
-export REDIS_PASSWORD=your_redis_password  # leave empty if no auth
-```
-
-Or pass them inline:
-
-```bash
-DB_PASSWORD=yourpass ./mvnw spring-boot:run
-```
-
-All configurable variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_URL` | `jdbc:mysql://localhost:3306/online_shopping?...` | JDBC URL |
-| `DB_USERNAME` | `root` | MySQL username |
-| `DB_PASSWORD` | *(empty)* | MySQL password |
-| `REDIS_HOST` | `localhost` | Redis host |
-| `REDIS_PORT` | `6379` | Redis port |
-| `REDIS_PASSWORD` | *(empty)* | Redis password |
-| `APP_SEARCH_ES_ENABLED` | `true` | Enable Elasticsearch search |
-| `ES_URIS` | `http://127.0.0.1:9200` | Elasticsearch endpoint |
-| `APP_AI_ENABLED` | `false` | Enable external AI gateway |
-| `APP_AI_BASE_URL` | `https://openrouter.ai/api/v1/chat/completions` | OpenAI-compatible API URL |
-| `APP_AI_API_KEY` | *(empty)* | AI API key |
-| `APP_AI_MODEL` | `deepseek/deepseek-chat-v3-0324:free` | Model name |
-| `FILE_UPLOAD_BASE_DIR` | `./uploads/images` | Local directory for uploaded image files (can be overridden per machine) |
-| `FILE_UPLOAD_PUBLIC_URL` | `/cdn/images/` | Public URL prefix mapped to local image directory |
-| `JWT_SECRET` | *(built-in default)* | JWT signing key (Base64) |
-
-### Important: Configure Image Storage Path Per Machine
-
-Image files are stored on local disk, while the database only stores image URLs and bindings.
-
-Default uses a project-relative path (`./uploads/images`) and works across platforms.
-
-For production or custom deployments, set `FILE_UPLOAD_BASE_DIR` to a machine-specific absolute path.
-
-Linux/macOS example:
-
-```bash
-export FILE_UPLOAD_BASE_DIR=/opt/online-shopping/uploads/images
-```
-
-Windows PowerShell example:
-
-```powershell
-$env:FILE_UPLOAD_BASE_DIR="D:\\online-shopping\\uploads\\images"
-```
-
-Then start the backend normally:
+### 4.4 Run Backend
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-### 4. Run
-
-```bash
-./mvnw spring-boot:run
-```
-
-### Windows: Start backend with Elasticsearch enabled
-
-PowerShell script (checks ES, sets env vars, then starts backend):
+Windows startup script (with ES checks):
 
 ```powershell
 $env:DB_PASSWORD="your_mysql_password"
 ./scripts/start-es-and-backend.ps1
 ```
 
-If you want the script to start ES using Docker automatically:
+### 4.5 API Docs
 
-```powershell
-./scripts/start-es-and-backend.ps1 -StartEsWithDocker
-```
+After startup: [http://localhost:8080/doc.html](http://localhost:8080/doc.html)
 
-If you want the script to start local ES from D drive automatically:
+## 5. Default Test Accounts
 
-```powershell
-./scripts/start-es-and-backend.ps1 -StartEsLocal
-```
+| Type | Username | Password |
+| --- | --- | --- |
+| Admin | admin | admin123 |
+| Other test users (for example alice_chen, tech_store) | See init-data.sql | test123 |
 
-Custom local ES path example:
+## 6. Project Structure
 
-```powershell
-./scripts/start-es-and-backend.ps1 -StartEsLocal -EsBatPath "D:\Develop\elasticsearch-9.3.2\bin\elasticsearch.bat"
-```
-
-If ES startup is slow, extend wait time:
-
-```powershell
-./scripts/start-es-and-backend.ps1 -StartEsLocal -EsWaitSeconds 300
-```
-
-If your local MySQL allows empty password, you can bypass DB password pre-check:
-
-```powershell
-./scripts/start-es-and-backend.ps1 -SkipDbCredentialCheck
-```
-
-### Windows: Reset and re-seed database (destructive)
-
-This command will drop and recreate the `online_shopping` database, then run `schema.sql` and `init-data.sql`.
-
-```powershell
-./scripts/reset-and-init-db.ps1 -DbPassword "your_mysql_password"
-```
-
-You can also use environment variable:
-
-```powershell
-$env:DB_PASSWORD="your_mysql_password"
-./scripts/reset-and-init-db.ps1
-```
-
-### 5. API Documentation
-
-Open [http://localhost:8080/doc.html](http://localhost:8080/doc.html) after startup.
-
-### Default Admin Account
-
-| Username | Password |
-|----------|----------|
-| admin | admin123 |
-
-## Project Structure
-
-```
+```text
 src/main/java/com/helloworld/onlineshopping/
-├── common/          # Shared: Result, security, config, enums, exceptions
+├── common/             # Shared capability: response, security, config, enums, exceptions
 └── modules/
-    ├── auth/        # Register, login, JWT
-    ├── user/        # Profile, password
-    ├── merchant/    # Shop apply, audit
-    ├── product/     # SPU/SKU, category, search
-    ├── cart/        # Shopping cart
-    ├── address/     # Delivery address
-    ├── order/       # Order lifecycle, payment, timeout
-    ├── review/      # Product reviews
-    └── admin/       # Dashboard, audit
+    ├── auth/           # Authentication and JWT
+    ├── user/           # User profile and password
+    ├── merchant/       # Merchant apply and audit
+    ├── product/        # Product SPU/SKU, category, search, images
+    ├── cart/           # Shopping cart
+    ├── address/        # Shipping address
+    ├── order/          # Order and payment lifecycle
+    ├── review/         # Product reviews
+    ├── admin/          # Admin dashboard and governance
+    ├── recommendation/ # Recommendation engine
+    ├── plan/           # Shopping plan
+    ├── ai/             # AI capabilities
+    └── agent/          # Agent workflows
 ```
 
-## Detailed Documentation
+## 7. TODO Roadmap
 
-See [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md) for full API reference, database schema, and architecture details.
+- TODO: Add filter + batch operations in admin audit center.
+- TODO: Add merchant report export (CSV/Excel).
+- TODO: Add buyer coupon/marketing workflow.
+- TODO: Add model routing + evaluation panel in intelligence center.
+
+## 8. More Docs
+
+- Development Guide: [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)
+- Database Design: [docs/DATABASE_DESIGN.md](docs/DATABASE_DESIGN.md)
+- File/Image Workflow: [docs/FILE_IMAGE_WORKFLOW.md](docs/FILE_IMAGE_WORKFLOW.md)

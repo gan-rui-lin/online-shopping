@@ -37,6 +37,8 @@ build/
 
 ### Chinese files ###
 *CN.*
+!README.zh-CN.md
+!zh-CN.ts
 
 ### Frontend (Node/Vite/Vue/etc.) ###
 frontend/node_modules/
