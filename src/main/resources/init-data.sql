@@ -265,7 +265,11 @@ INSERT INTO product_spu (
 
 (10034, 5003, 41, 'Addison-Wesley', 'Design Patterns GoF', 'Elements of Reusable Object-Oriented Software', '/cdn/images/design_patterns_gof.jpg',
  'Classic reference introducing reusable object-oriented design patterns. Covers creational, structural, and behavioral patterns with practical examples for software architecture and maintainable design.',
- 1, 1, 42.00, 65.00, 310, 4500, 200, 380, '2024-03-31 09:07:00');
+ 1, 1, 42.00, 65.00, 310, 4500, 200, 380, '2024-03-31 09:07:00'),
+
+(10035, 5001, 11, 'Apple', 'iPhone 16 Pro', 'Audit pending sample product for TechMart Official Store', '/cdn/images/iphone16pro.jpg',
+ 'Sample product inserted for admin audit workflow verification. This record stays in pending status until the administrator approves it.',
+ 0, 0, 9999.00, 14999.00, 0, 0, 0, 0, '2026-04-05 10:00:00');
 
 INSERT INTO product_sku (
     id, spu_id, sku_code, sku_name, sale_price, origin_price, stock, lock_stock, warning_stock,
@@ -305,7 +309,8 @@ INSERT INTO product_sku (
 (20032, 10031, 'SKU-20032', 'Clean Code Chinese Edition Paperback', 79.00, 99.00, 160, 0, 15, '/cdn/images/clean_code.jpg', '{"format":"Paperback"}', 1, 0),
 (20033, 10032, 'SKU-20033', 'The Art of War Paperback', 12.00, 28.00, 220, 0, 20, '/cdn/images/artofwar.jpg', '{"format":"Paperback"}', 1, 0),
 (20034, 10033, 'SKU-20034', 'Introduction to Algorithms CLRS Hardcover', 70.00, 95.00, 160, 0, 15, '/cdn/images/intro_to_algo.jpg', '{"format":"Hardcover"}', 1, 0),
-(20035, 10034, 'SKU-20035', 'Design Patterns GoF Paperback', 42.00, 65.00, 180, 0, 15, '/cdn/images/design_patterns_gof.jpg', '{"format":"Paperback"}', 1, 0);
+(20035, 10034, 'SKU-20035', 'Design Patterns GoF Paperback', 42.00, 65.00, 180, 0, 15, '/cdn/images/design_patterns_gof.jpg', '{"format":"Paperback"}', 1, 0),
+(20036, 10035, 'SKU-20036', 'iPhone 16 Pro 256GB Natural Titanium', 9999.00, 10999.00, 28, 0, 6, '/cdn/images/iphone16pro-256gb-natural-titanium.jpg', '{"storage":"256GB","color":"Natural Titanium"}', 1, 0);
 
 INSERT INTO product_image (id, spu_id, sku_id, image_url, image_type, sort_order, create_time) VALUES
 (9200, 10001, NULL, '/cdn/images/iphone15promax.jpg', 1, 0, '2026-03-31 09:00:00'),
@@ -325,7 +330,9 @@ INSERT INTO product_image (id, spu_id, sku_id, image_url, image_type, sort_order
 (9214, 10033, NULL, '/cdn/images/intro_to_algo.jpg', 1, 0, '2026-03-31 09:06:00'),
 (9215, 10033, 20034, '/cdn/images/intro_to_algo.jpg', 3, 0, '2026-03-31 09:07:00'),
 (9216, 10034, NULL, '/cdn/images/design_patterns_gof.jpg', 1, 0, '2026-03-31 09:07:10'),
-(9217, 10034, 20035, '/cdn/images/design_patterns_gof.jpg', 3, 0, '2026-03-31 09:07:20');
+(9217, 10034, 20035, '/cdn/images/design_patterns_gof.jpg', 3, 0, '2026-03-31 09:07:20'),
+(9218, 10035, NULL, '/cdn/images/iphone16pro.jpg', 1, 0, '2026-04-05 10:00:00'),
+(9219, 10035, 20036, '/cdn/images/iphone16pro-256gb-natural-titanium.jpg', 3, 0, '2026-04-05 10:00:05');
 
 INSERT INTO user_address (id, user_id, receiver_name, receiver_phone, province, city, district, detail_address, postal_code, is_default, tag_name) VALUES
 (30001, 3001, 'Alice Chen', '13900003001', 'Beijing', 'Beijing', 'Haidian', 'No. 123 Zhongguancun Street, Building 5, Apt 1203', '100190', 1, 'Home'),
