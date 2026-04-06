@@ -499,6 +499,52 @@ public class ProductService {
         return PageResult.of(voList, result.getTotal(), pageNum, pageSize);
     }
 
+    public PageResult<ProductSimpleVO> getPendingAuditProducts(Integer pageNum, Integer pageSize) {
+        Page<ProductSpuEntity> page = new Page<>(pageNum, pageSize);
+        Page<ProductSpuEntity> result = spuMapper.selectPage(page,
+            new LambdaQueryWrapper<ProductSpuEntity>()
+                .eq(ProductSpuEntity::getAuditStatus, 0)
+                .orderByDesc(ProductSpuEntity::getCreateTime));
+
+        List<ProductSimpleVO> voList = result.getRecords().stream().map(spu -> {
+            ProductSimpleVO vo = new ProductSimpleVO();
+            vo.setSpuId(spu.getId());
+            vo.setTitle(spu.getTitle());
+            vo.setSubTitle(spu.getSubTitle());
+            vo.setMainImage(spu.getMainImage());
+            vo.setMinPrice(spu.getMinPrice());
+            vo.setMaxPrice(spu.getMaxPrice());
+            vo.setSalesCount(spu.getSalesCount());
+            vo.setStatus(spu.getStatus());
+            vo.setAuditStatus(spu.getAuditStatus());
+            MerchantShopEntity shop = shopMapper.selectById(spu.getShopId());
+            vo.setShopName(shop != null ? shop.getShopName() : "");
+            return vo;
+        }).collect(Collectors.toList());
+
+        return PageResult.of(voList, result.getTotal(), pageNum, pageSize);
+    }
+
+    @Transactional
+    public void approveProduct(Long spuId) {
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null) {
+            throw new BusinessException("Product not found");
+        }
+        spu.setAuditStatus(1);
+        spuMapper.updateById(spu);
+    }
+
+    @Transactional
+    public void rejectProduct(Long spuId) {
+        ProductSpuEntity spu = spuMapper.selectById(spuId);
+        if (spu == null) {
+            throw new BusinessException("Product not found");
+        }
+        spu.setAuditStatus(2);
+        spuMapper.updateById(spu);
+    }
+
     @CacheEvict(value = "product:detail", key = "#spuId")
     @Transactional
     public void bindProductImages(Long spuId, ProductImageBindDTO dto) {

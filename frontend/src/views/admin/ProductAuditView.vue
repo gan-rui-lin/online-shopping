@@ -3,13 +3,13 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
-import { searchProducts } from '@/api/product'
+import { getPendingProducts } from '@/api/admin'
 import { approveProduct, rejectProduct } from '@/api/admin'
 import type { ProductSimpleVO } from '@/types/product'
 import { ProductStatus } from '@/constants/enums'
 import PriceDisplay from '@/components/PriceDisplay.vue'
 import { resolveImageUrl } from '@/utils/image'
-import { getProductStatusLabel } from '@/utils/i18nStatus'
+import { getProductStatusLabel, getProductAuditStatusLabel } from '@/utils/i18nStatus'
 const list = ref<ProductSimpleVO[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -20,7 +20,7 @@ const { t } = useI18n()
 async function fetchProducts() {
   loading.value = true
   try {
-    const res = await searchProducts({ pageNum: pageNum.value, pageSize: pageSize.value })
+    const res = await getPendingProducts(pageNum.value, pageSize.value)
     list.value = res.list
     total.value = res.total
   } catch {
@@ -83,6 +83,13 @@ onMounted(fetchProducts)
         <el-table-column :label="t('intelligence.price')" width="120">
           <template #default="{ row }">
             <PriceDisplay :price="row.minPrice" size="small" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('merchant.auditStatus')" width="110">
+          <template #default="{ row }">
+            <el-tag :type="row.auditStatus === 1 ? 'success' : row.auditStatus === 2 ? 'danger' : 'warning'" size="small">
+              {{ getProductAuditStatusLabel(t, row.auditStatus) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column :label="t('merchant.status')" width="110">
