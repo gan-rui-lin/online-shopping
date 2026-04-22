@@ -31,6 +31,7 @@ TRUNCATE TABLE product_knowledge_doc;
 TRUNCATE TABLE shopping_plan_item;
 TRUNCATE TABLE shopping_plan;
 TRUNCATE TABLE agent_task;
+TRUNCATE TABLE admin_action_log;
 TRUNCATE TABLE sys_role_permission;
 TRUNCATE TABLE sys_user_role;
 TRUNCATE TABLE sys_permission;

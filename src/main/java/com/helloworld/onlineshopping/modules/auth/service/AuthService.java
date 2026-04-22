@@ -32,6 +32,7 @@ public class AuthService {
     private final UserRoleMapper userRoleMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final LoginSecurityService loginSecurityService;
 
     @Value("${jwt.token-head}")
     private String tokenHead;
@@ -77,9 +78,12 @@ public class AuthService {
     }
 
     public LoginVO login(LoginDTO dto) {
+        loginSecurityService.ensureLoginAllowed(dto.getUsername());
+
         UserEntity user = userMapper.selectOne(
             new LambdaQueryWrapper<UserEntity>().eq(UserEntity::getUsername, dto.getUsername()));
         if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            loginSecurityService.onLoginFailed(dto.getUsername());
             throw new BusinessException(401, "Invalid username or password");
         }
         if (user.getStatus() != 1) {
@@ -102,6 +106,7 @@ public class AuthService {
         // Update last login time
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.updateById(user);
+        loginSecurityService.onLoginSuccess(dto.getUsername());
 
         // Build response
         LoginVO vo = new LoginVO();

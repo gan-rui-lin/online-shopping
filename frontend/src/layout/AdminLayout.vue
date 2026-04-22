@@ -14,6 +14,8 @@ const menuItems = [
   { path: '/admin', label: 'adminLayout.dashboard', icon: 'DataLine' },
   { path: '/admin/members', label: 'adminLayout.members', icon: 'User' },
   { path: '/admin/orders', label: 'adminLayout.orders', icon: 'Tickets' },
+  { path: '/admin/action-logs', label: 'adminLayout.actionLogs', icon: 'Document' },
+  { path: '/admin/security', label: 'adminLayout.security', icon: 'Lock' },
   { path: '/admin/merchants', label: 'adminLayout.merchantAudit', icon: 'OfficeBuilding' },
   { path: '/admin/products', label: 'adminLayout.productAudit', icon: 'Goods' },
   { path: '/admin/categories', label: 'adminLayout.categories', icon: 'Menu' },
@@ -82,14 +84,20 @@ async function handleLogout() {
 .admin-layout {
   display: flex;
   min-height: 100vh;
+  background:
+    radial-gradient(1200px 400px at -10% -10%, rgba(255, 128, 0, 0.08), transparent 55%),
+    radial-gradient(800px 300px at 110% 0%, rgba(45, 110, 255, 0.08), transparent 60%),
+    var(--bg-color);
 }
 
 .sidebar {
   width: $sidebar-width;
-  background: #1d1e3a;
+  background: linear-gradient(180deg, #152238 0%, #1f2a40 45%, #212d46 100%);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 8px 26px rgba(16, 24, 40, 0.22);
+  z-index: 1;
 }
 
 .sidebar-header {
@@ -102,19 +110,23 @@ async function handleLogout() {
   font-size: $font-size-lg;
   font-weight: 600;
   cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-menu {
   border-right: none;
-  background: #1d1e3a;
+  background: transparent;
   flex: 1;
+  padding: 10px 8px;
 
   :deep(.el-menu-item) {
     color: rgba(255, 255, 255, 0.65);
+    border-radius: 10px;
+    margin-bottom: 4px;
 
     &:hover, &.is-active {
       color: #fff;
-      background: #6366f1;
+      background: linear-gradient(90deg, #ff6a00 0%, #ff920d 100%);
     }
   }
 }
@@ -128,10 +140,12 @@ async function handleLogout() {
 }
 
 .header {
-  background: $bg-white;
-  box-shadow: $shadow-sm;
+  background: color-mix(in oklab, var(--bg-card) 86%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.06);
   height: $header-height;
   padding: 0 24px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .header-inner {
@@ -167,6 +181,6 @@ async function handleLogout() {
 
 .main-content {
   flex: 1;
-  padding: 20px 24px;
+  padding: 20px 24px 28px;
 }
 </style>

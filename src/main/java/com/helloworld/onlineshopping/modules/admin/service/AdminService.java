@@ -8,8 +8,12 @@ import com.helloworld.onlineshopping.common.security.SecurityUtil;
 import com.helloworld.onlineshopping.modules.admin.dto.AdminOrderQueryDTO;
 import com.helloworld.onlineshopping.modules.admin.dto.AdminUserQueryDTO;
 import com.helloworld.onlineshopping.modules.admin.vo.AdminOrderVO;
-import com.helloworld.onlineshopping.modules.admin.vo.DashboardVO;
 import com.helloworld.onlineshopping.modules.admin.vo.AdminUserVO;
+import com.helloworld.onlineshopping.modules.admin.vo.DashboardTrendVO;
+import com.helloworld.onlineshopping.modules.admin.vo.DashboardVO;
+import com.helloworld.onlineshopping.modules.admin.vo.OrderStatusStatVO;
+import com.helloworld.onlineshopping.modules.admin.vo.SecurityOverviewVO;
+import com.helloworld.onlineshopping.modules.auth.service.LoginSecurityService;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.order.entity.OrderEntity;
@@ -24,8 +28,8 @@ import com.helloworld.onlineshopping.modules.user.mapper.RoleMapper;
 import com.helloworld.onlineshopping.modules.user.mapper.UserMapper;
 import com.helloworld.onlineshopping.modules.user.mapper.UserRoleMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,6 +53,7 @@ public class AdminService {
     private final UserRoleMapper userRoleMapper;
     private final RoleMapper roleMapper;
     private final OrderService orderService;
+    private final LoginSecurityService loginSecurityService;
 
     public DashboardVO getDashboard() {
         DashboardVO vo = new DashboardVO();
@@ -70,6 +75,47 @@ public class AdminService {
         LocalDateTime todayStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
         vo.setTodayOrderCount(orderMapper.selectCount(
             new LambdaQueryWrapper<OrderEntity>().ge(OrderEntity::getCreateTime, todayStart)));
+
+        // Last 7-day trend
+        LocalDate startDate = LocalDate.now().minusDays(6);
+        LocalDateTime trendStart = LocalDateTime.of(startDate, LocalTime.MIN);
+        List<OrderEntity> trendOrders = orderMapper.selectList(new LambdaQueryWrapper<OrderEntity>()
+            .ge(OrderEntity::getCreateTime, trendStart));
+
+        Map<LocalDate, Long> orderCountMap = trendOrders.stream()
+            .collect(Collectors.groupingBy(o -> o.getCreateTime().toLocalDate(), Collectors.counting()));
+        Map<LocalDate, BigDecimal> gmvByDateMap = trendOrders.stream()
+            .filter(o -> o.getPayStatus() != null && o.getPayStatus() != 0)
+            .collect(Collectors.groupingBy(
+                o -> o.getCreateTime().toLocalDate(),
+                Collectors.reducing(BigDecimal.ZERO, OrderEntity::getPayAmount, BigDecimal::add)));
+
+        List<DashboardTrendVO> orderTrend = new java.util.ArrayList<>();
+        List<DashboardTrendVO> gmvTrend = new java.util.ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            LocalDate day = startDate.plusDays(i);
+            DashboardTrendVO orderPoint = new DashboardTrendVO();
+            orderPoint.setDate(day.toString());
+            orderPoint.setValue(BigDecimal.valueOf(orderCountMap.getOrDefault(day, 0L)));
+            orderTrend.add(orderPoint);
+
+            DashboardTrendVO gmvPoint = new DashboardTrendVO();
+            gmvPoint.setDate(day.toString());
+            gmvPoint.setValue(gmvByDateMap.getOrDefault(day, BigDecimal.ZERO));
+            gmvTrend.add(gmvPoint);
+        }
+        vo.setOrderTrend(orderTrend);
+        vo.setGmvTrend(gmvTrend);
+
+        List<OrderStatusStatVO> statusStats = new java.util.ArrayList<>();
+        for (int status = 0; status <= 6; status++) {
+            OrderStatusStatVO stat = new OrderStatusStatVO();
+            stat.setStatus(status);
+            stat.setCount(orderMapper.selectCount(
+                new LambdaQueryWrapper<OrderEntity>().eq(OrderEntity::getOrderStatus, status)));
+            statusStats.add(stat);
+        }
+        vo.setOrderStatusStats(statusStats);
 
         return vo;
     }
@@ -146,32 +192,6 @@ public class AdminService {
         userMapper.updateById(target);
     }
 
-    private Map<Long, List<String>> loadUserRoleCodes(List<Long> userIds) {
-        if (userIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        List<UserRoleEntity> userRoles = userRoleMapper.selectList(
-            new LambdaQueryWrapper<UserRoleEntity>().in(UserRoleEntity::getUserId, userIds));
-        if (userRoles.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        Set<Long> roleIds = userRoles.stream().map(UserRoleEntity::getRoleId).collect(Collectors.toSet());
-        Map<Long, String> roleCodeMap = roleMapper.selectBatchIds(roleIds).stream()
-            .collect(Collectors.toMap(RoleEntity::getId, RoleEntity::getRoleCode));
-
-        Map<Long, List<String>> userRoleMap = new HashMap<>();
-        for (UserRoleEntity userRole : userRoles) {
-            String roleCode = roleCodeMap.get(userRole.getRoleId());
-            if (roleCode == null) {
-                continue;
-            }
-            userRoleMap.computeIfAbsent(userRole.getUserId(), k -> new java.util.ArrayList<>()).add(roleCode);
-        }
-        return userRoleMap;
-    }
-
     public PageResult<AdminOrderVO> getOrders(AdminOrderQueryDTO dto) {
         LambdaQueryWrapper<OrderEntity> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(dto.getOrderNo())) {
@@ -229,5 +249,41 @@ public class AdminService {
 
     public void rejectRefundByAdmin(String orderNo, String reason) {
         orderService.adminRejectRefund(orderNo, reason, SecurityUtil.getCurrentUserId());
+    }
+
+    public SecurityOverviewVO getSecurityOverview() {
+        SecurityOverviewVO vo = new SecurityOverviewVO();
+        vo.setMaxFailures(loginSecurityService.getMaxFailures());
+        vo.setLockMinutes(loginSecurityService.getLockMinutes());
+        vo.setLockedAccountCount(loginSecurityService.getLockedAccountCount());
+        vo.setTodayFailedLoginCount(loginSecurityService.getTodayFailedLoginCount());
+        vo.setLockedAccounts(loginSecurityService.getLockedAccounts());
+        return vo;
+    }
+
+    private Map<Long, List<String>> loadUserRoleCodes(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<UserRoleEntity> userRoles = userRoleMapper.selectList(
+            new LambdaQueryWrapper<UserRoleEntity>().in(UserRoleEntity::getUserId, userIds));
+        if (userRoles.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<Long> roleIds = userRoles.stream().map(UserRoleEntity::getRoleId).collect(Collectors.toSet());
+        Map<Long, String> roleCodeMap = roleMapper.selectBatchIds(roleIds).stream()
+            .collect(Collectors.toMap(RoleEntity::getId, RoleEntity::getRoleCode));
+
+        Map<Long, List<String>> userRoleMap = new HashMap<>();
+        for (UserRoleEntity userRole : userRoles) {
+            String roleCode = roleCodeMap.get(userRole.getRoleId());
+            if (roleCode == null) {
+                continue;
+            }
+            userRoleMap.computeIfAbsent(userRole.getUserId(), k -> new java.util.ArrayList<>()).add(roleCode);
+        }
+        return userRoleMap;
     }
 }

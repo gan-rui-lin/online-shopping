@@ -441,6 +441,22 @@ CREATE TABLE IF NOT EXISTS agent_task (
     INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='agent task';
 
+CREATE TABLE IF NOT EXISTS admin_action_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    operator_id BIGINT NOT NULL,
+    operator_name VARCHAR(64),
+    module VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    target_type VARCHAR(64),
+    target_id VARCHAR(128),
+    detail VARCHAR(500),
+    success TINYINT NOT NULL DEFAULT 1 COMMENT '0failed 1success',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_operator_id (operator_id),
+    INDEX idx_module (module),
+    INDEX idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='admin action log';
+
 -- =============================================
 -- 9. Init Data
 -- =============================================

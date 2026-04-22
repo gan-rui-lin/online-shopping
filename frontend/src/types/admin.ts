@@ -5,6 +5,19 @@ export interface DashboardVO {
   orderCount: number
   gmv: number
   todayOrderCount: number
+  orderTrend: DashboardTrendVO[]
+  gmvTrend: DashboardTrendVO[]
+  orderStatusStats: OrderStatusStatVO[]
+}
+
+export interface DashboardTrendVO {
+  date: string
+  value: number
+}
+
+export interface OrderStatusStatVO {
+  status: number
+  count: number
 }
 
 export interface AdminUserVO {
@@ -49,4 +62,33 @@ export interface AdminOrderQueryDTO {
   userId?: number
   shopId?: number
   orderStatus?: number
+}
+
+export interface AdminActionLogVO {
+  id: number
+  operatorId: number
+  operatorName: string
+  module: string
+  action: string
+  targetType: string
+  targetId: string
+  detail: string
+  success: number
+  createTime: string
+}
+
+export interface AdminActionLogQueryDTO {
+  pageNum: number
+  pageSize: number
+  operatorId?: number
+  module?: string
+  success?: number
+}
+
+export interface SecurityOverviewVO {
+  maxFailures: number
+  lockMinutes: number
+  lockedAccountCount: number
+  todayFailedLoginCount: number
+  lockedAccounts: string[]
 }

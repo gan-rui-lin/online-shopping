@@ -5,6 +5,9 @@ import type {
   AdminUserQueryDTO,
   AdminOrderVO,
   AdminOrderQueryDTO,
+  AdminActionLogVO,
+  AdminActionLogQueryDTO,
+  SecurityOverviewVO,
 } from '@/types/admin'
 import type { PageResult } from '@/types/common'
 import type { ProductSimpleVO } from '@/types/product'
@@ -47,4 +50,12 @@ export function approveAdminRefund(orderNo: string): Promise<void> {
 
 export function rejectAdminRefund(orderNo: string, reason: string): Promise<void> {
   return request.post<void>(`/admin/orders/${orderNo}/refund/reject`, null, { params: { reason } })
+}
+
+export function getAdminActionLogs(params: AdminActionLogQueryDTO): Promise<PageResult<AdminActionLogVO>> {
+  return request.get<PageResult<AdminActionLogVO>>('/admin/action-logs', params)
+}
+
+export function getSecurityOverview(): Promise<SecurityOverviewVO> {
+  return request.get<SecurityOverviewVO>('/admin/security/overview')
 }
