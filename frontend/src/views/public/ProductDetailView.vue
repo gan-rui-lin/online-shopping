@@ -113,6 +113,8 @@ function toSimpleVO(item: RecommendProductVO): ProductSimpleVO {
     maxPrice: item.minPrice,
     salesCount: item.salesCount,
     shopName: '',
+    status: 1,
+    auditStatus: 1,
   }
 }
 

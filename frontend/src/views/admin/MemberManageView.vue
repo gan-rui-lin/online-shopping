@@ -156,7 +156,7 @@ onMounted(fetchUsers)
               inline-prompt
               active-text="ON"
               inactive-text="OFF"
-              @change="(v) => handleStatusSwitch(row, v)"
+              @change="(v: number | string | boolean) => handleStatusSwitch(row, v)"
             />
           </template>
         </el-table-column>
