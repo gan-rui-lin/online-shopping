@@ -1,5 +1,11 @@
 import request from '@/utils/request'
-import type { DashboardVO, AdminUserVO, AdminUserQueryDTO } from '@/types/admin'
+import type {
+  DashboardVO,
+  AdminUserVO,
+  AdminUserQueryDTO,
+  AdminOrderVO,
+  AdminOrderQueryDTO,
+} from '@/types/admin'
 import type { PageResult } from '@/types/common'
 import type { ProductSimpleVO } from '@/types/product'
 
@@ -25,4 +31,20 @@ export function getAdminUsers(params: AdminUserQueryDTO): Promise<PageResult<Adm
 
 export function updateAdminUserStatus(userId: number, status: number): Promise<void> {
   return request.put<void>(`/admin/users/${userId}/status`, null, { params: { status } })
+}
+
+export function getAdminOrders(params: AdminOrderQueryDTO): Promise<PageResult<AdminOrderVO>> {
+  return request.get<PageResult<AdminOrderVO>>('/admin/orders', params)
+}
+
+export function cancelAdminOrder(orderNo: string, reason?: string): Promise<void> {
+  return request.post<void>(`/admin/orders/${orderNo}/cancel`, null, { params: { reason } })
+}
+
+export function approveAdminRefund(orderNo: string): Promise<void> {
+  return request.post<void>(`/admin/orders/${orderNo}/refund/approve`)
+}
+
+export function rejectAdminRefund(orderNo: string, reason: string): Promise<void> {
+  return request.post<void>(`/admin/orders/${orderNo}/refund/reject`, null, { params: { reason } })
 }

@@ -1,8 +1,10 @@
 package com.helloworld.onlineshopping.modules.admin.controller;
 
 import com.helloworld.onlineshopping.common.api.Result;
+import com.helloworld.onlineshopping.modules.admin.dto.AdminOrderQueryDTO;
 import com.helloworld.onlineshopping.modules.admin.service.AdminService;
 import com.helloworld.onlineshopping.modules.admin.dto.AdminUserQueryDTO;
+import com.helloworld.onlineshopping.modules.admin.vo.AdminOrderVO;
 import com.helloworld.onlineshopping.modules.admin.vo.AdminUserVO;
 import com.helloworld.onlineshopping.modules.admin.vo.DashboardVO;
 import com.helloworld.onlineshopping.common.api.PageResult;
@@ -62,6 +64,33 @@ public class AdminController {
     @PutMapping("/users/{userId}/status")
     public Result<Void> updateUserStatus(@PathVariable Long userId, @RequestParam Integer status) {
         adminService.updateUserStatus(userId, status);
+        return Result.success();
+    }
+
+    @Operation(summary = "List all orders for intervention")
+    @GetMapping("/orders")
+    public Result<PageResult<AdminOrderVO>> orders(AdminOrderQueryDTO dto) {
+        return Result.success(adminService.getOrders(dto));
+    }
+
+    @Operation(summary = "Cancel unpaid order by admin")
+    @PostMapping("/orders/{orderNo}/cancel")
+    public Result<Void> cancelOrder(@PathVariable String orderNo, @RequestParam(required = false) String reason) {
+        adminService.cancelUnpaidOrder(orderNo, reason);
+        return Result.success();
+    }
+
+    @Operation(summary = "Approve refund by admin")
+    @PostMapping("/orders/{orderNo}/refund/approve")
+    public Result<Void> approveRefund(@PathVariable String orderNo) {
+        adminService.approveRefundByAdmin(orderNo);
+        return Result.success();
+    }
+
+    @Operation(summary = "Reject refund by admin")
+    @PostMapping("/orders/{orderNo}/refund/reject")
+    public Result<Void> rejectRefund(@PathVariable String orderNo, @RequestParam String reason) {
+        adminService.rejectRefundByAdmin(orderNo, reason);
         return Result.success();
     }
 }

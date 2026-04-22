@@ -13,6 +13,7 @@ const nickname = computed(() => userStore.nickname)
 const menuItems = [
   { path: '/admin', label: 'adminLayout.dashboard', icon: 'DataLine' },
   { path: '/admin/members', label: 'adminLayout.members', icon: 'User' },
+  { path: '/admin/orders', label: 'adminLayout.orders', icon: 'Tickets' },
   { path: '/admin/merchants', label: 'adminLayout.merchantAudit', icon: 'OfficeBuilding' },
   { path: '/admin/products', label: 'adminLayout.productAudit', icon: 'Goods' },
   { path: '/admin/categories', label: 'adminLayout.categories', icon: 'Menu' },

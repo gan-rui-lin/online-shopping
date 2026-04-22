@@ -5,13 +5,16 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.common.security.SecurityUtil;
+import com.helloworld.onlineshopping.modules.admin.dto.AdminOrderQueryDTO;
 import com.helloworld.onlineshopping.modules.admin.dto.AdminUserQueryDTO;
+import com.helloworld.onlineshopping.modules.admin.vo.AdminOrderVO;
 import com.helloworld.onlineshopping.modules.admin.vo.DashboardVO;
 import com.helloworld.onlineshopping.modules.admin.vo.AdminUserVO;
 import com.helloworld.onlineshopping.modules.merchant.entity.MerchantShopEntity;
 import com.helloworld.onlineshopping.modules.merchant.mapper.MerchantShopMapper;
 import com.helloworld.onlineshopping.modules.order.entity.OrderEntity;
 import com.helloworld.onlineshopping.modules.order.mapper.OrderMapper;
+import com.helloworld.onlineshopping.modules.order.service.OrderService;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
 import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import com.helloworld.onlineshopping.modules.user.entity.RoleEntity;
@@ -45,6 +48,7 @@ public class AdminService {
     private final OrderMapper orderMapper;
     private final UserRoleMapper userRoleMapper;
     private final RoleMapper roleMapper;
+    private final OrderService orderService;
 
     public DashboardVO getDashboard() {
         DashboardVO vo = new DashboardVO();
@@ -166,5 +170,64 @@ public class AdminService {
             userRoleMap.computeIfAbsent(userRole.getUserId(), k -> new java.util.ArrayList<>()).add(roleCode);
         }
         return userRoleMap;
+    }
+
+    public PageResult<AdminOrderVO> getOrders(AdminOrderQueryDTO dto) {
+        LambdaQueryWrapper<OrderEntity> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(dto.getOrderNo())) {
+            wrapper.like(OrderEntity::getOrderNo, dto.getOrderNo().trim());
+        }
+        if (dto.getOrderStatus() != null) {
+            wrapper.eq(OrderEntity::getOrderStatus, dto.getOrderStatus());
+        }
+        if (dto.getUserId() != null) {
+            wrapper.eq(OrderEntity::getUserId, dto.getUserId());
+        }
+        if (dto.getShopId() != null) {
+            wrapper.eq(OrderEntity::getShopId, dto.getShopId());
+        }
+        wrapper.orderByDesc(OrderEntity::getCreateTime);
+
+        Page<OrderEntity> page = orderMapper.selectPage(new Page<>(dto.getPageNum(), dto.getPageSize()), wrapper);
+        if (page.getRecords().isEmpty()) {
+            return PageResult.of(List.of(), page.getTotal(), dto.getPageNum(), dto.getPageSize());
+        }
+
+        Set<Long> shopIds = page.getRecords().stream().map(OrderEntity::getShopId).collect(Collectors.toSet());
+        Set<Long> userIds = page.getRecords().stream().map(OrderEntity::getUserId).collect(Collectors.toSet());
+        Map<Long, String> shopNameMap = shopMapper.selectBatchIds(shopIds).stream()
+            .collect(Collectors.toMap(MerchantShopEntity::getId, MerchantShopEntity::getShopName));
+        Map<Long, String> userNameMap = userMapper.selectBatchIds(userIds).stream()
+            .collect(Collectors.toMap(UserEntity::getId, UserEntity::getUsername));
+
+        List<AdminOrderVO> list = page.getRecords().stream().map(order -> {
+            AdminOrderVO vo = new AdminOrderVO();
+            vo.setOrderNo(order.getOrderNo());
+            vo.setUserId(order.getUserId());
+            vo.setUsername(userNameMap.getOrDefault(order.getUserId(), "-"));
+            vo.setShopId(order.getShopId());
+            vo.setShopName(shopNameMap.getOrDefault(order.getShopId(), "-"));
+            vo.setOrderStatus(order.getOrderStatus());
+            vo.setPayStatus(order.getPayStatus());
+            vo.setPayAmount(order.getPayAmount());
+            vo.setCancelReason(order.getCancelReason());
+            vo.setCreateTime(order.getCreateTime());
+            vo.setPayTime(order.getPayTime());
+            return vo;
+        }).toList();
+
+        return PageResult.of(list, page.getTotal(), dto.getPageNum(), dto.getPageSize());
+    }
+
+    public void cancelUnpaidOrder(String orderNo, String reason) {
+        orderService.adminCancelUnpaidOrder(orderNo, reason, SecurityUtil.getCurrentUserId());
+    }
+
+    public void approveRefundByAdmin(String orderNo) {
+        orderService.adminApproveRefund(orderNo, SecurityUtil.getCurrentUserId());
+    }
+
+    public void rejectRefundByAdmin(String orderNo, String reason) {
+        orderService.adminRejectRefund(orderNo, reason, SecurityUtil.getCurrentUserId());
     }
 }

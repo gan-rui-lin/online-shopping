@@ -523,44 +523,7 @@ public class OrderService {
         if (shop == null || !shop.getId().equals(order.getShopId())) {
             throw new BusinessException("No permission");
         }
-        if (order.getOrderStatus() != 5) {
-            throw new BusinessException("Order is not in refunding status");
-        }
-
-        // Process refund
-        order.setOrderStatus(6); // refunded
-        order.setPayStatus(2); // refunded
-        orderMapper.updateById(order);
-
-        // Return stock
-        List<OrderItemEntity> items = orderItemMapper.selectList(
-            new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
-        for (OrderItemEntity item : items) {
-            ProductSkuEntity sku = skuMapper.selectById(item.getSkuId());
-            if (sku != null) {
-                sku.setStock(sku.getStock() + item.getQuantity());
-                skuMapper.updateById(sku);
-
-                InventoryLogEntity invLog = new InventoryLogEntity();
-                invLog.setSkuId(item.getSkuId());
-                invLog.setOrderNo(orderNo);
-                invLog.setChangeCount(item.getQuantity());
-                invLog.setBeforeStock(sku.getStock() - item.getQuantity());
-                invLog.setAfterStock(sku.getStock());
-                invLog.setOperateType("RETURN");
-                invLog.setRemark("Refund approved, return stock");
-                inventoryLogMapper.insert(invLog);
-            }
-
-            // Decrease SPU sales count
-            ProductSpuEntity spu = spuMapper.selectById(item.getSpuId());
-            if (spu != null) {
-                spu.setSalesCount(Math.max(0, spu.getSalesCount() - item.getQuantity()));
-                spuMapper.updateById(spu);
-            }
-        }
-
-        saveOperateLog(order.getId(), orderNo, 5, 6, userId, "MERCHANT", "APPROVE_REFUND", "Merchant approved refund");
+        processApproveRefund(order, userId, "MERCHANT", "Merchant approved refund");
     }
 
     @Transactional
@@ -573,14 +536,30 @@ public class OrderService {
         if (shop == null || !shop.getId().equals(order.getShopId())) {
             throw new BusinessException("No permission");
         }
-        if (order.getOrderStatus() != 5) {
-            throw new BusinessException("Order is not in refunding status");
+        processRejectRefund(order, userId, "MERCHANT", reason);
+    }
+
+    @Transactional
+    public void adminCancelUnpaidOrder(String orderNo, String reason, Long adminId) {
+        OrderEntity order = getOrderByNo(orderNo);
+        if (order.getOrderStatus() != 0) {
+            throw new BusinessException("Only unpaid orders can be cancelled by admin");
         }
+        String finalReason = (reason == null || reason.isBlank()) ? "Admin intervention cancel" : reason;
+        doCancelOrder(order, finalReason, adminId, "ADMIN");
+    }
 
-        order.setOrderStatus(3); // back to completed
-        orderMapper.updateById(order);
+    @Transactional
+    public void adminApproveRefund(String orderNo, Long adminId) {
+        OrderEntity order = getOrderByNo(orderNo);
+        processApproveRefund(order, adminId, "ADMIN", "Admin approved refund");
+    }
 
-        saveOperateLog(order.getId(), orderNo, 5, 3, userId, "MERCHANT", "REJECT_REFUND", reason);
+    @Transactional
+    public void adminRejectRefund(String orderNo, String reason, Long adminId) {
+        OrderEntity order = getOrderByNo(orderNo);
+        String finalReason = (reason == null || reason.isBlank()) ? "Admin rejected refund" : reason;
+        processRejectRefund(order, adminId, "ADMIN", finalReason);
     }
 
     public com.helloworld.onlineshopping.modules.order.vo.DeliveryDetailVO getDeliveryDetails(String orderNo) {
@@ -606,5 +585,57 @@ public class OrderService {
         }
 
         return vo;
+    }
+
+    private void processApproveRefund(OrderEntity order, Long operatorId, String role, String remark) {
+        if (order.getOrderStatus() != 5) {
+            throw new BusinessException("Order is not in refunding status");
+        }
+
+        // Process refund
+        order.setOrderStatus(6); // refunded
+        order.setPayStatus(2); // refunded
+        orderMapper.updateById(order);
+
+        // Return stock
+        List<OrderItemEntity> items = orderItemMapper.selectList(
+            new LambdaQueryWrapper<OrderItemEntity>().eq(OrderItemEntity::getOrderId, order.getId()));
+        for (OrderItemEntity item : items) {
+            ProductSkuEntity sku = skuMapper.selectById(item.getSkuId());
+            if (sku != null) {
+                sku.setStock(sku.getStock() + item.getQuantity());
+                skuMapper.updateById(sku);
+
+                InventoryLogEntity invLog = new InventoryLogEntity();
+                invLog.setSkuId(item.getSkuId());
+                invLog.setOrderNo(order.getOrderNo());
+                invLog.setChangeCount(item.getQuantity());
+                invLog.setBeforeStock(sku.getStock() - item.getQuantity());
+                invLog.setAfterStock(sku.getStock());
+                invLog.setOperateType("RETURN");
+                invLog.setRemark("Refund approved, return stock");
+                inventoryLogMapper.insert(invLog);
+            }
+
+            // Decrease SPU sales count
+            ProductSpuEntity spu = spuMapper.selectById(item.getSpuId());
+            if (spu != null) {
+                spu.setSalesCount(Math.max(0, spu.getSalesCount() - item.getQuantity()));
+                spuMapper.updateById(spu);
+            }
+        }
+
+        saveOperateLog(order.getId(), order.getOrderNo(), 5, 6, operatorId, role, "APPROVE_REFUND", remark);
+    }
+
+    private void processRejectRefund(OrderEntity order, Long operatorId, String role, String reason) {
+        if (order.getOrderStatus() != 5) {
+            throw new BusinessException("Order is not in refunding status");
+        }
+
+        order.setOrderStatus(3); // back to completed
+        orderMapper.updateById(order);
+
+        saveOperateLog(order.getId(), order.getOrderNo(), 5, 3, operatorId, role, "REJECT_REFUND", reason);
     }
 }
