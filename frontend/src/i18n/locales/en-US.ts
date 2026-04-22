@@ -18,6 +18,7 @@ export default {
     execute: 'Execute',
     create: 'Create',
     requestFailed: 'Request failed',
+    reset: 'Reset',
   },
   routeTitle: {
     home: 'Home',
@@ -42,6 +43,7 @@ export default {
     merchantIntelligence: 'Merchant Intelligence',
     merchantReviews: 'Review Management',
     adminDashboard: 'Admin Dashboard',
+    adminMembers: 'Member Management',
     adminMerchantAudit: 'Merchant Audit',
     adminProductAudit: 'Product Audit',
     adminCategories: 'Category Management',
@@ -183,6 +185,7 @@ export default {
   adminLayout: {
     adminPanel: 'Admin Panel',
     dashboard: 'Dashboard',
+    members: 'Members',
     merchantAudit: 'Merchant Audit',
     productAudit: 'Product Audit',
     categories: 'Categories',
@@ -483,6 +486,14 @@ export default {
     inactive: 'Inactive',
   },
   admin: {
+    memberManagement: 'Member Management',
+    memberKeywordPlaceholder: 'Search by username, nickname, phone, email',
+    memberType: 'Member Type',
+    roleCodes: 'Roles',
+    lastLogin: 'Last Login',
+    confirmEnableUser: 'Enable this user account?',
+    confirmDisableUser: 'Disable this user account?',
+    userStatusUpdated: 'User status updated',
     platformDashboard: 'Platform Dashboard',
     totalUsers: 'Total Users',
     totalMerchants: 'Merchants',

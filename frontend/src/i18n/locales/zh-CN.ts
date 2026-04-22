@@ -18,6 +18,7 @@ export default {
     execute: '执行',
     create: '创建',
     requestFailed: '请求失败',
+    reset: 'Reset',
   },
   routeTitle: {
     home: '首页',
@@ -42,6 +43,7 @@ export default {
     merchantIntelligence: '商家智能助手',
     merchantReviews: '评价管理',
     adminDashboard: '管理仪表盘',
+    adminMembers: 'Member Management',
     adminMerchantAudit: '商家审核',
     adminProductAudit: '商品审核',
     adminCategories: '分类管理',
@@ -143,6 +145,7 @@ export default {
   adminLayout: {
     adminPanel: '管理后台',
     dashboard: '仪表盘',
+    members: 'Members',
     merchantAudit: '商家审核',
     productAudit: '商品审核',
     categories: '分类管理',
@@ -443,6 +446,14 @@ export default {
     inactive: '未营业',
   },
   admin: {
+    memberManagement: 'Member Management',
+    memberKeywordPlaceholder: 'Search by username, nickname, phone, email',
+    memberType: 'Member Type',
+    roleCodes: 'Roles',
+    lastLogin: 'Last Login',
+    confirmEnableUser: 'Enable this user account?',
+    confirmDisableUser: 'Disable this user account?',
+    userStatusUpdated: 'User status updated',
     platformDashboard: '平台仪表盘',
     totalUsers: '用户总数',
     totalMerchants: '商家数',

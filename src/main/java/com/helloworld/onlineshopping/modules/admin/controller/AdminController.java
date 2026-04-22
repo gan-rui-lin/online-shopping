@@ -2,6 +2,8 @@ package com.helloworld.onlineshopping.modules.admin.controller;
 
 import com.helloworld.onlineshopping.common.api.Result;
 import com.helloworld.onlineshopping.modules.admin.service.AdminService;
+import com.helloworld.onlineshopping.modules.admin.dto.AdminUserQueryDTO;
+import com.helloworld.onlineshopping.modules.admin.vo.AdminUserVO;
 import com.helloworld.onlineshopping.modules.admin.vo.DashboardVO;
 import com.helloworld.onlineshopping.common.api.PageResult;
 import com.helloworld.onlineshopping.modules.product.service.ProductService;
@@ -47,6 +49,19 @@ public class AdminController {
     @PostMapping("/product/{spuId}/reject")
     public Result<Void> rejectProduct(@PathVariable Long spuId) {
         productService.rejectProduct(spuId);
+        return Result.success();
+    }
+
+    @Operation(summary = "List members")
+    @GetMapping("/users")
+    public Result<PageResult<AdminUserVO>> users(AdminUserQueryDTO dto) {
+        return Result.success(adminService.getUsers(dto));
+    }
+
+    @Operation(summary = "Update member status")
+    @PutMapping("/users/{userId}/status")
+    public Result<Void> updateUserStatus(@PathVariable Long userId, @RequestParam Integer status) {
+        adminService.updateUserStatus(userId, status);
         return Result.success();
     }
 }

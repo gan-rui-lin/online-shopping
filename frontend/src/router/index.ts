@@ -160,6 +160,12 @@ const routes: RouteRecordRaw[] = [
         meta: { titleKey: 'routeTitle.adminDashboard' },
       },
       {
+        path: 'members',
+        name: 'AdminMembers',
+        component: () => import('@/views/admin/MemberManageView.vue'),
+        meta: { titleKey: 'routeTitle.adminMembers' },
+      },
+      {
         path: 'merchants',
         name: 'AdminMerchantAudit',
         component: () => import('@/views/admin/MerchantAuditView.vue'),
