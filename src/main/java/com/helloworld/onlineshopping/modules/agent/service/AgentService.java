@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.helloworld.onlineshopping.common.utils.AiJsonExtractor;
 import com.helloworld.onlineshopping.common.exception.BusinessException;
 import com.helloworld.onlineshopping.common.security.SecurityUtil;
 import com.helloworld.onlineshopping.modules.agent.dto.AgentTaskCreateDTO;
@@ -25,12 +26,16 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AgentService {
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("[\\p{IsHan}]{2,}|[A-Za-z0-9]{2,}");
+
     private final AgentTaskMapper taskMapper;
     private final ProductSpuMapper spuMapper;
     private final ProductSkuMapper skuMapper;
@@ -75,7 +80,17 @@ public class AgentService {
         Long userId = SecurityUtil.getCurrentUserId();
         AgentTaskEntity task = taskMapper.selectById(taskId);
         if (task == null || !task.getUserId().equals(userId)) throw new BusinessException("Task not found");
-        for (Long skuId : skuIds) {
+        if (skuIds == null || skuIds.isEmpty()) {
+            throw new BusinessException("No SKU selected");
+        }
+        LinkedHashSet<Long> dedupSkuIds = skuIds.stream()
+            .filter(id -> id != null && id > 0)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (dedupSkuIds.isEmpty()) {
+            throw new BusinessException("No SKU selected");
+        }
+
+        for (Long skuId : dedupSkuIds) {
             CartItemEntity existing = cartItemMapper.selectOne(new LambdaQueryWrapper<CartItemEntity>()
                 .eq(CartItemEntity::getUserId, userId).eq(CartItemEntity::getSkuId, skuId));
             if (existing != null) {
@@ -154,7 +169,11 @@ public class AgentService {
             query.le(ProductSpuEntity::getMinPrice, dto.getBudgetLimit());
         }
         List<ProductSpuEntity> pool = spuMapper.selectList(query);
-        List<ProductSpuEntity> candidates = selectByAi(dto, pool);
+        List<ProductSpuEntity> preFiltered = preFilterCandidates(dto, pool);
+        List<ProductSpuEntity> candidates = selectByAi(dto, preFiltered);
+        if (candidates.isEmpty()) {
+            candidates = preFiltered.stream().limit(6).collect(Collectors.toList());
+        }
         if (candidates.isEmpty()) {
             return List.of();
         }
@@ -168,6 +187,9 @@ public class AgentService {
         }
         if (recs.isEmpty()) {
             return recs;
+        }
+        if (recs.size() > 8) {
+            recs = recs.subList(0, 8);
         }
 
         Map<Long, String> aiReasonMap = generateAiReasons(dto, recs);
@@ -183,7 +205,7 @@ public class AgentService {
             return List.of();
         }
 
-        int batchSize = 200;
+        int batchSize = 80;
         Set<Long> selectedIds = new HashSet<>();
         for (int i = 0; i < pool.size(); i += batchSize) {
             int end = Math.min(i + batchSize, pool.size());
@@ -221,7 +243,7 @@ public class AgentService {
                     "\n候选商品：\n" + candidates;
             }
             String aiText = aiClient.chat(systemPrompt, userPrompt);
-            JsonNode root = objectMapper.readTree(aiText);
+            JsonNode root = objectMapper.readTree(AiJsonExtractor.unwrapJson(aiText));
             if (!root.isArray()) {
                 return Set.of();
             }
@@ -259,7 +281,7 @@ public class AgentService {
                     "\n预算上限：" + (dto.getBudgetLimit() == null ? "不限" : dto.getBudgetLimit()) + "\n候选商品：\n" + candidateText;
             }
             String aiText = aiClient.chat(systemPrompt, userPrompt);
-            JsonNode root = objectMapper.readTree(aiText);
+            JsonNode root = objectMapper.readTree(AiJsonExtractor.unwrapJson(aiText));
             if (!root.isArray()) {
                 return Map.of();
             }
@@ -329,6 +351,65 @@ public class AgentService {
 
     private String nullSafe(String value) {
         return value == null ? "" : value;
+    }
+
+    private List<ProductSpuEntity> preFilterCandidates(AgentTaskCreateDTO dto, List<ProductSpuEntity> pool) {
+        if (pool == null || pool.isEmpty()) {
+            return List.of();
+        }
+        List<String> tokens = extractTokens(dto.getIntentRequirement() + " " + nullSafe(dto.getPreference()));
+        if (tokens.isEmpty()) {
+            return pool.stream().limit(80).collect(Collectors.toList());
+        }
+
+        List<ProductSpuEntity> ranked = pool.stream()
+            .sorted(Comparator
+                .comparingInt((ProductSpuEntity spu) -> scoreSpu(spu, tokens)).reversed()
+                .thenComparing(ProductSpuEntity::getSalesCount, Comparator.nullsLast(Comparator.reverseOrder())))
+            .collect(Collectors.toList());
+
+        List<ProductSpuEntity> matched = ranked.stream()
+            .filter(spu -> scoreSpu(spu, tokens) > 0)
+            .limit(80)
+            .collect(Collectors.toList());
+        if (!matched.isEmpty()) {
+            return matched;
+        }
+        return ranked.stream().limit(80).collect(Collectors.toList());
+    }
+
+    private List<String> extractTokens(String text) {
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        Matcher matcher = TOKEN_PATTERN.matcher(text.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String token = matcher.group().trim();
+            if (token.length() >= 2) {
+                tokens.add(token);
+            }
+        }
+        return new ArrayList<>(tokens);
+    }
+
+    private int scoreSpu(ProductSpuEntity spu, List<String> tokens) {
+        String title = nullSafe(spu.getTitle()).toLowerCase(Locale.ROOT);
+        String subtitle = nullSafe(spu.getSubTitle()).toLowerCase(Locale.ROOT);
+        String brand = nullSafe(spu.getBrandName()).toLowerCase(Locale.ROOT);
+        int score = 0;
+        for (String token : tokens) {
+            if (title.contains(token)) {
+                score += 4;
+            }
+            if (subtitle.contains(token)) {
+                score += 2;
+            }
+            if (brand.contains(token)) {
+                score += 1;
+            }
+        }
+        return score;
     }
 
     private boolean isEnglish(String locale) {

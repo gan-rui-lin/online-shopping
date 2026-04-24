@@ -5,6 +5,7 @@ import com.helloworld.onlineshopping.modules.ai.vo.ReviewSummaryVO;
 import com.helloworld.onlineshopping.modules.review.entity.ProductReviewEntity;
 import com.helloworld.onlineshopping.modules.review.mapper.ProductReviewMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -19,6 +20,7 @@ public class ReviewSummaryService {
     private final ProductReviewMapper reviewMapper;
     private final AiClient aiClient;
 
+    @Cacheable(cacheNames = "ai:reviewSummary", key = "#spuId + ':' + (#locale == null ? 'zh-CN' : #locale)")
     public ReviewSummaryVO summarizeReviews(Long spuId, String locale) {
         List<ProductReviewEntity> reviews = reviewMapper.selectList(
             new LambdaQueryWrapper<ProductReviewEntity>()
@@ -61,24 +63,53 @@ public class ReviewSummaryService {
         String result = aiClient.chat(systemPrompt, userPrompt);
 
         // Parse mock response
-        vo.setPros(extractSection(result, "PROS:"));
-        vo.setCons(extractSection(result, "CONS:"));
+        vo.setPros(extractSection(result, "PROS:", "优点:"));
+        vo.setCons(extractSection(result, "CONS:", "不足:"));
 
-        String summary = result.contains("SUMMARY:")
-            ? result.substring(result.indexOf("SUMMARY:") + 8).trim()
-            : result;
+        String summary = extractSummary(result);
         vo.setSummary(summary);
         return vo;
     }
 
-    private List<String> extractSection(String text, String marker) {
-        if (!text.contains(marker)) return List.of();
-        String section = text.substring(text.indexOf(marker) + marker.length());
+    private List<String> extractSection(String text, String... markers) {
+        String section = null;
+        for (String marker : markers) {
+            int index = indexOfIgnoreCase(text, marker);
+            if (index >= 0) {
+                section = text.substring(index + marker.length());
+                break;
+            }
+            String fullWidth = marker.replace(':', '：');
+            index = indexOfIgnoreCase(text, fullWidth);
+            if (index >= 0) {
+                section = text.substring(index + fullWidth.length());
+                break;
+            }
+        }
+        if (section == null) return List.of();
         if (section.contains("\n")) section = section.substring(0, section.indexOf("\n"));
-        return Arrays.stream(section.split(","))
+        return Arrays.stream(section.split("[,，]"))
             .map(String::trim)
             .filter(s -> !s.isEmpty())
             .collect(Collectors.toList());
+    }
+
+    private String extractSummary(String text) {
+        String[] markers = {"SUMMARY:", "SUMMARY：", "总结:", "总结："};
+        for (String marker : markers) {
+            int index = indexOfIgnoreCase(text, marker);
+            if (index >= 0) {
+                return text.substring(index + marker.length()).trim();
+            }
+        }
+        return text;
+    }
+
+    private int indexOfIgnoreCase(String text, String marker) {
+        if (text == null || marker == null) {
+            return -1;
+        }
+        return text.toLowerCase(Locale.ROOT).indexOf(marker.toLowerCase(Locale.ROOT));
     }
 
     private boolean isEnglish(String locale) {

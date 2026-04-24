@@ -29,6 +29,7 @@ const activeLocale = computed(() => locale.value || 'zh-CN')
 const ragForm = ref({ sourceType: 'favorite', question: '' })
 const ragSelectedKeys = ref<string[]>([])
 const ragAnswer = ref('')
+const ragReferenceTitles = ref<string[]>([])
 const ragSessionId = ref<number>()
 const ragHistory = ref<ChatMessageVO[]>([])
 
@@ -273,6 +274,7 @@ async function submitRagQuestion() {
       locale: activeLocale.value,
     })
     ragAnswer.value = result.answer
+    ragReferenceTitles.value = result.referenceDocTitles || []
     ragSessionId.value = result.sessionId
     const now = new Date().toLocaleString()
     ragHistory.value = [...ragHistory.value, { role: 'user', content: askedQuestion, createTime: now }, { role: 'assistant', content: result.answer, createTime: now }]
@@ -469,6 +471,12 @@ onMounted(loadExtraPanels)
           <div v-if="ragAnswer" class="rag-answer">
             <div class="rag-answer-title">{{ t('intelligence.aiAnswer') }}</div>
             <div class="rag-answer-content markdown-content" v-html="ragAnswerHtml"></div>
+            <div v-if="ragReferenceTitles.length" class="rag-reference">
+              <div class="rag-reference-title">{{ t('intelligence.referenceSources') }}</div>
+              <div class="rag-reference-list">
+                <span v-for="(title, index) in ragReferenceTitles" :key="index">{{ title }}</span>
+              </div>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -1066,6 +1074,30 @@ onMounted(loadExtraPanels)
   white-space: pre-wrap;
   line-height: 1.7;
   color: var(--text-primary);
+}
+
+.rag-reference {
+  margin-top: 10px;
+  border-top: 1px dashed #bcd2ff;
+  padding-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.rag-reference-title {
+  font-size: 12px;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.rag-reference-list {
+  display: grid;
+  gap: 4px;
+}
+
+.rag-reference-list span {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .bullet-list {

@@ -10,10 +10,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class KnowledgeService {
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("[\\p{IsHan}]{2,}|[A-Za-z0-9]{2,}");
+    private static final Set<String> STOP_WORDS = Set.of(
+        "这个", "那个", "哪些", "什么", "怎么", "一下", "是否", "可以", "一下子",
+        "what", "which", "with", "this", "that", "then", "from", "have", "will"
+    );
+
     private final ProductKnowledgeDocMapper docMapper;
     private final ProductSpuMapper spuMapper;
     private final ProductSkuMapper skuMapper;
@@ -21,6 +34,12 @@ public class KnowledgeService {
     public void importFromProduct(Long spuId) {
         ProductSpuEntity spu = spuMapper.selectById(spuId);
         if (spu == null) return;
+
+        // Keep this import idempotent and avoid duplicate docs after repeated asks.
+        docMapper.delete(new LambdaQueryWrapper<ProductKnowledgeDocEntity>()
+            .eq(ProductKnowledgeDocEntity::getSpuId, spuId)
+            .in(ProductKnowledgeDocEntity::getSourceType, "PRODUCT_DESC", "SKU_SPEC"));
+
         // Product overview doc
         ProductKnowledgeDocEntity doc = new ProductKnowledgeDocEntity();
         doc.setSpuId(spuId);
@@ -42,15 +61,46 @@ public class KnowledgeService {
         }
     }
 
-    public List<ProductKnowledgeDocEntity> searchRelevant(Long spuId, String question, int limit) {
-        String[] keywords = question.split("\\s+");
-        LambdaQueryWrapper<ProductKnowledgeDocEntity> w = new LambdaQueryWrapper<ProductKnowledgeDocEntity>()
-            .eq(ProductKnowledgeDocEntity::getSpuId, spuId).eq(ProductKnowledgeDocEntity::getStatus, 1);
-        if (keywords.length > 0) {
-            w.and(q -> { for (String kw : keywords) { q.or().like(ProductKnowledgeDocEntity::getContent, kw); } });
+    public void ensureKnowledgeImported(Long spuId) {
+        Long count = docMapper.selectCount(new LambdaQueryWrapper<ProductKnowledgeDocEntity>()
+            .eq(ProductKnowledgeDocEntity::getSpuId, spuId)
+            .eq(ProductKnowledgeDocEntity::getStatus, 1));
+        if (count == null || count == 0L) {
+            importFromProduct(spuId);
         }
-        w.last("LIMIT " + limit);
-        return docMapper.selectList(w);
+    }
+
+    public List<ProductKnowledgeDocEntity> searchRelevant(Long spuId, String question, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        List<ProductKnowledgeDocEntity> docs = docMapper.selectList(new LambdaQueryWrapper<ProductKnowledgeDocEntity>()
+            .eq(ProductKnowledgeDocEntity::getSpuId, spuId)
+            .eq(ProductKnowledgeDocEntity::getStatus, 1)
+            .orderByDesc(ProductKnowledgeDocEntity::getUpdateTime)
+            .last("LIMIT 80"));
+        if (docs.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> keywords = extractKeywords(question);
+        if (keywords.isEmpty()) {
+            return docs.stream().limit(safeLimit).collect(Collectors.toList());
+        }
+
+        List<ProductKnowledgeDocEntity> sorted = docs.stream()
+            .sorted(Comparator
+                .comparingInt((ProductKnowledgeDocEntity doc) -> score(doc, keywords)).reversed()
+                .thenComparing(ProductKnowledgeDocEntity::getUpdateTime, Comparator.nullsLast(Comparator.reverseOrder())))
+            .collect(Collectors.toList());
+
+        List<ProductKnowledgeDocEntity> matched = sorted.stream()
+            .filter(doc -> score(doc, keywords) > 0)
+            .limit(safeLimit)
+            .collect(Collectors.toList());
+
+        if (!matched.isEmpty()) {
+            return matched;
+        }
+        return sorted.stream().limit(safeLimit).collect(Collectors.toList());
     }
 
     public String buildProductSnapshot(Long spuId) {
@@ -88,5 +138,37 @@ public class KnowledgeService {
             return text == null ? "" : text;
         }
         return text.substring(0, maxLength) + "...";
+    }
+
+    private List<String> extractKeywords(String question) {
+        if (question == null || question.isBlank()) {
+            return List.of();
+        }
+        String normalized = question.toLowerCase(Locale.ROOT);
+        Matcher matcher = TOKEN_PATTERN.matcher(normalized);
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        while (matcher.find()) {
+            String token = matcher.group().trim();
+            if (token.length() < 2 || STOP_WORDS.contains(token)) {
+                continue;
+            }
+            tokens.add(token);
+        }
+        return new ArrayList<>(tokens);
+    }
+
+    private int score(ProductKnowledgeDocEntity doc, List<String> keywords) {
+        String title = safe(doc.getTitle()).toLowerCase(Locale.ROOT);
+        String content = safe(doc.getContent()).toLowerCase(Locale.ROOT);
+        int score = 0;
+        for (String keyword : keywords) {
+            if (title.contains(keyword)) {
+                score += 4;
+            }
+            if (content.contains(keyword)) {
+                score += 2;
+            }
+        }
+        return score;
     }
 }

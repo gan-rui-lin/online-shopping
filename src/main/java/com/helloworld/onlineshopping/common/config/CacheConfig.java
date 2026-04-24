@@ -30,6 +30,9 @@ public class CacheConfig {
         configMap.put("category:tree", defaultConfig.entryTtl(Duration.ofHours(1)));
         configMap.put("product:hot", defaultConfig.entryTtl(Duration.ofMinutes(5)));
         configMap.put("user:info", defaultConfig.entryTtl(Duration.ofMinutes(15)));
+        configMap.put("ai:sellingPoints", defaultConfig.entryTtl(Duration.ofMinutes(20)));
+        configMap.put("ai:reviewSummary", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        configMap.put("ai:productEvaluation", defaultConfig.entryTtl(Duration.ofMinutes(15)));
 
         org.springframework.data.redis.cache.RedisCacheWriter redisCacheWriter = org.springframework.data.redis.cache.RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory);
         return new CustomRedisCacheManager(redisCacheWriter, defaultConfig, configMap);

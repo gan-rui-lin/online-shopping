@@ -133,6 +133,7 @@ export default {
     viewDetail: 'View Details',
     sourceFrom: 'Source: ',
     aiAnswer: 'AI Answer',
+    referenceSources: 'References',
     selectBindProduct: 'Select a bound product',
     noBindProduct: 'No products available to bind',
     productNameLabel: 'What to buy',

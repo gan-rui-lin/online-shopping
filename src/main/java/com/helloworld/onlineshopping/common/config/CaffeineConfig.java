@@ -22,4 +22,16 @@ public class CaffeineConfig {
                 .expireAfterWrite(1, TimeUnit.HOURS)
                 .build();
     }
+
+    /**
+     * Short-lived cache for repeated RAG questions in the same context.
+     */
+    @Bean("intelligenceRagCache")
+    public Cache<String, Object> intelligenceRagCache() {
+        return Caffeine.newBuilder()
+                .initialCapacity(200)
+                .maximumSize(2000)
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .build();
+    }
 }

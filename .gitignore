@@ -63,7 +63,7 @@ frontend/.idea
 frontend/.vscode/
 
 # xk specific
-*_xk.*
+*_xk*
 
 
 #User uploaded images

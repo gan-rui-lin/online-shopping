@@ -110,6 +110,8 @@ export default {
     tabAgent: 'Agent 代购',
     tabCopywriting: 'AI 文案',
     askQuestion: '提问',
+    aiAnswer: 'AI 回答',
+    referenceSources: '参考来源',
     runTask: '生成任务',
     addToCart: '加入购物车',
     generate: '生成',

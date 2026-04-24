@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helloworld.onlineshopping.common.exception.BusinessException;
+import com.helloworld.onlineshopping.common.utils.AiJsonExtractor;
 import com.helloworld.onlineshopping.modules.ai.vo.CopywritingResultVO;
 import com.helloworld.onlineshopping.modules.ai.vo.ProductEvaluationVO;
 import com.helloworld.onlineshopping.modules.product.entity.ProductSpuEntity;
@@ -11,6 +12,7 @@ import com.helloworld.onlineshopping.modules.product.mapper.ProductSpuMapper;
 import com.helloworld.onlineshopping.modules.review.entity.ProductReviewEntity;
 import com.helloworld.onlineshopping.modules.review.mapper.ProductReviewMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -51,6 +53,7 @@ public class CopywritingService {
         return vo;
     }
 
+    @Cacheable(cacheNames = "ai:sellingPoints", key = "#spuId + ':' + (#locale == null ? 'zh-CN' : #locale)")
     public CopywritingResultVO generateSellingPoints(Long spuId, String locale) {
         ProductSpuEntity spu = spuMapper.selectById(spuId);
         if (spu == null) throw new BusinessException("Product not found");
@@ -64,6 +67,7 @@ public class CopywritingService {
         return vo;
     }
 
+    @Cacheable(cacheNames = "ai:productEvaluation", key = "#spuId + ':' + (#locale == null ? 'zh-CN' : #locale)")
     public ProductEvaluationVO evaluateProduct(Long spuId, String locale) {
         ProductSpuEntity spu = spuMapper.selectById(spuId);
         if (spu == null) {
@@ -127,7 +131,7 @@ public class CopywritingService {
         }
 
         try {
-            JsonNode root = objectMapper.readTree(aiText);
+            JsonNode root = objectMapper.readTree(AiJsonExtractor.unwrapJson(aiText));
             if (root.isObject()) {
                 String overall = root.path("overallLevel").asText();
                 if (StringUtils.hasText(overall)) {

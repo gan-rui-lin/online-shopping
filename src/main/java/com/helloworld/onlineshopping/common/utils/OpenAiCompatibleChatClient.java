@@ -11,6 +11,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -23,6 +24,9 @@ import java.util.Map;
 @Primary
 @RequiredArgsConstructor
 public class OpenAiCompatibleChatClient implements AiClient, com.helloworld.onlineshopping.modules.rag.service.AiClient {
+
+    @Value("${app.ai.enabled:false}")
+    private Boolean enabled;
 
     @Value("${app.ai.base-url:https://openrouter.ai/api/v1/chat/completions}")
     private String baseUrl;
@@ -38,10 +42,13 @@ public class OpenAiCompatibleChatClient implements AiClient, com.helloworld.onli
 
     private final ObjectMapper objectMapper;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private volatile RestTemplate restTemplate;
 
     @Override
     public String chat(String systemPrompt, String userMessage) {
+        if (!Boolean.TRUE.equals(enabled)) {
+            return "AI service is disabled by configuration (app.ai.enabled=false).";
+        }
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("AI API key is empty. Please set app.ai.api-key or disable app.ai.enabled.");
             return "AI service is enabled but API key is missing. Please configure app.ai.api-key.";
@@ -63,7 +70,7 @@ public class OpenAiCompatibleChatClient implements AiClient, com.helloworld.onli
             ));
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(baseUrl, request, String.class);
+            ResponseEntity<String> response = getOrCreateRestTemplate().postForEntity(baseUrl, request, String.class);
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 log.warn("AI response status not successful: {}", response.getStatusCode());
@@ -79,6 +86,23 @@ public class OpenAiCompatibleChatClient implements AiClient, com.helloworld.onli
         } catch (Exception ex) {
             log.error("Call AI gateway failed", ex);
             return "AI service request failed. Please try again later.";
+        }
+    }
+
+    private RestTemplate getOrCreateRestTemplate() {
+        RestTemplate current = this.restTemplate;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (this.restTemplate == null) {
+                int timeout = timeoutMs == null || timeoutMs < 1000 ? 20000 : timeoutMs;
+                SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                factory.setConnectTimeout(timeout);
+                factory.setReadTimeout(timeout);
+                this.restTemplate = new RestTemplate(factory);
+            }
+            return this.restTemplate;
         }
     }
 }
